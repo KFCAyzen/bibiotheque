@@ -60,6 +60,17 @@ services:
         # on attend que son healthcheck passe au vert. Sans "condition",
         # le backend démarrerait trop tôt et mourrait sur un refus de connexion.
         condition: service_healthy
+    healthcheck:
+      # Tomcat n'ouvre son port qu'après l'initialisation de JPA : obtenir une
+      # réponse HTTP prouve donc que les tables ont été créées par Hibernate.
+      # C'est ce qui permet au service "seed" de savoir quand il peut écrire.
+      # Le 401 attendu ici n'est pas un échec : seul compte le fait qu'une
+      # réponse arrive, d'où l'absence de -f.
+      test: ["CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:8080/admin/books || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
 
   # ---------------------------------------------------------------------------
   # Interface Angular, servie par nginx
@@ -79,6 +90,35 @@ services:
       - "4200:4200"
     depends_on:
       - backend
+
+  # ---------------------------------------------------------------------------
+  # Jeu de données initial — service à usage unique
+  # ---------------------------------------------------------------------------
+  # Objectif : qu'un "docker compose up" sur une machine vierge donne une
+  # application immédiatement utilisable, sans le moindre SQL tapé à la main.
+  #
+  # Il ne peut pas s'exécuter plus tôt : les tables n'existent qu'une fois
+  # Hibernate passé, donc une fois le backend démarré. D'où la dépendance au
+  # healthcheck du backend, et non à celui de la base.
+  #
+  # Le conteneur s'arrête dès le script terminé : le voir en statut "Exited (0)"
+  # dans "docker compose ps" est le comportement normal, pas une panne.
+  # ---------------------------------------------------------------------------
+  seed:
+    image: mysql:8.0
+    container_name: bibliotheque-seed
+    restart: "no"
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mysql}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-bibliotheque}
+    volumes:
+      - ./docker/seed.sql:/seed.sql:ro
+    command: >
+      sh -c 'mysql --default-character-set=utf8mb4 -h db -uroot -p"$$MYSQL_ROOT_PASSWORD" "$$MYSQL_DATABASE" < /seed.sql
+      && echo "[seed] jeu de donnees initial applique"'
 
 volumes:
   db-data:
