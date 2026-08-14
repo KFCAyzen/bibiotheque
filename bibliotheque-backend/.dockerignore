@@ -1,0 +1,13 @@
+# Artefacts de build : ils seraient recompilés dans l'image de toute façon,
+# et les envoyer au daemon Docker ne fait que ralentir le build.
+target/
+
+# Réglages d'IDE
+.idea/
+.vscode/
+*.iml
+
+# Le wrapper Maven est inutile ici : l'image de build fournit déjà Maven.
+.mvn/
+mvnw
+mvnw.cmd
