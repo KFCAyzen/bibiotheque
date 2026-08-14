@@ -1,0 +1,13 @@
+# Jamais envoyer node_modules au daemon Docker : l'image le reconstruit avec
+# "npm ci", et les binaires compilés pour Windows seraient inutilisables sous
+# Linux de toute façon.
+node_modules/
+dist/
+
+.angular/
+.vscode/
+.idea/
+
+# Le Dockerfile n'a pas besoin de se copier lui-même
+Dockerfile
+.dockerignore

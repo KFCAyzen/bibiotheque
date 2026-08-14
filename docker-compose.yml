@@ -61,5 +61,24 @@ services:
         # le backend démarrerait trop tôt et mourrait sur un refus de connexion.
         condition: service_healthy
 
+  # ---------------------------------------------------------------------------
+  # Interface Angular, servie par nginx
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./bibliotheque-frontend
+    container_name: bibliotheque-frontend
+    restart: unless-stopped
+    ports:
+      # Le piège de l'énoncé : le front appelle http://localhost:8080 en dur,
+      # mais ce code tourne dans le navigateur de l'utilisateur, pas dans ce
+      # conteneur. "localhost" y désigne donc la machine hôte — où le port 8080
+      # du backend est publié juste au-dessus. Aucun proxy n'est nécessaire.
+      # En revanche, si le front avait appelé l'API depuis le conteneur (SSR),
+      # il aurait fallu viser http://backend:8080.
+      - "4200:4200"
+    depends_on:
+      - backend
+
 volumes:
   db-data:
