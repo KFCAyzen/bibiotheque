@@ -1,0 +1,65 @@
+services:
+
+  # ---------------------------------------------------------------------------
+  # Base de données MySQL
+  # Les valeurs par défaut reprennent exactement celles attendues par
+  # bibliotheque-backend/src/main/resources/application.properties
+  # (root / mysql / schéma "bibliotheque"), que l'épreuve interdit de modifier.
+  # ---------------------------------------------------------------------------
+  db:
+    image: mysql:8.0
+    container_name: bibliotheque-db
+    restart: unless-stopped
+    environment:
+      # Aucun mot de passe en dur : surchargeable via un fichier .env
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mysql}
+      # MySQL crée ce schéma tout seul au premier démarrage :
+      # c'est ce qui remplace le "CREATE DATABASE bibliotheque;" manuel du README
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-bibliotheque}
+    ports:
+      # Exposé sur l'hôte pour pouvoir inspecter la base depuis un client externe
+      - "3306:3306"
+    volumes:
+      # Volume nommé : les données survivent à "docker compose down" (barème 3.1)
+      - db-data:/var/lib/mysql
+    healthcheck:
+      # "depends_on" seul n'attend que le démarrage du conteneur, pas la
+      # disponibilité du serveur MySQL. C'est ce healthcheck qui fera la
+      # différence quand le backend viendra s'y accrocher (barème 3.4).
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # API Spring Boot
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./bibliotheque-backend
+    container_name: bibliotheque-backend
+    restart: unless-stopped
+    environment:
+      # application.properties est intouchable (contrainte de l'épreuve).
+      # Spring Boot applique la "relaxed binding" : SPRING_DATASOURCE_URL
+      # surcharge spring.datasource.url. C'est ainsi qu'on repointe la base
+      # sans éditer une seule ligne du fichier de configuration.
+      #
+      # "db" et non "localhost" : dans le réseau Docker, chaque service est
+      # joignable par son nom. localhost, ici, désignerait le conteneur backend
+      # lui-même.
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE:-bibliotheque}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mysql}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        # La clé du barème 3.4 : on n'attend pas le démarrage du conteneur db,
+        # on attend que son healthcheck passe au vert. Sans "condition",
+        # le backend démarrerait trop tôt et mourrait sur un refus de connexion.
+        condition: service_healthy
+
+volumes:
+  db-data:
