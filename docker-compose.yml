@@ -120,5 +120,29 @@ services:
       sh -c 'mysql --default-character-set=utf8mb4 -h db -uroot -p"$$MYSQL_ROOT_PASSWORD" "$$MYSQL_DATABASE" < /seed.sql
       && echo "[seed] jeu de donnees initial applique"'
 
+  # ---------------------------------------------------------------------------
+  # Documentation interactive de l'API
+  # ---------------------------------------------------------------------------
+  # Le projet n'embarque aucune dépendance springdoc/springfox, et pom.xml est
+  # intouchable. On sert donc une spécification OpenAPI écrite à la main via
+  # l'image officielle swagger-ui : la documentation devient navigable et
+  # testable sans modifier une ligne du backend.
+  #
+  # Le bouton "Try it out" tape sur http://localhost:8080 depuis le navigateur.
+  # Cela fonctionne parce que CorsConfiguration autorise toutes les origines —
+  # vérifié : le préflight depuis :8081 renvoie bien
+  # Access-Control-Allow-Origin: http://localhost:8081.
+  # ---------------------------------------------------------------------------
+  swagger:
+    image: swaggerapi/swagger-ui
+    container_name: bibliotheque-swagger
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      SWAGGER_JSON: /spec/openapi.yaml
+    volumes:
+      - ./docker/openapi.yaml:/spec/openapi.yaml:ro
+
 volumes:
   db-data:

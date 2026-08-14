@@ -1,0 +1,561 @@
+openapi: 3.0.3
+
+# =============================================================================
+# Spécification écrite à la main, à partir des contrôleurs du dépôt.
+#
+# POURQUOI CE FICHIER EXISTE
+# Le projet n'embarque aucune dépendance springdoc/springfox : les URL usuelles
+# (/swagger-ui.html, /v3/api-docs, ...) répondent toutes 404. Or l'épreuve
+# interdit de modifier pom.xml. Cette spécification, servie par un conteneur
+# swagger-ui distinct, donne donc une documentation navigable et testable sans
+# toucher une seule ligne du projet.
+#
+# CONTREPARTIE À CONNAÎTRE
+# Ce fichier ne se met pas à jour tout seul. Contrairement à springdoc, qui
+# lirait les annotations à chaque démarrage, il faut le maintenir à la main
+# quand un contrôleur change. C'est le prix de la contrainte.
+#
+# Chaque route ci-dessous a été relevée dans le code, et les niveaux d'accès
+# proviennent du croisement de WebSecurityConfiguration et des @PreAuthorize.
+# =============================================================================
+
+info:
+  title: Gestion de Bibliothèque — API
+  version: 0.0.1-SNAPSHOT
+  description: |
+    API REST du projet bibliothèque (Spring Boot 2.4.5).
+
+    ## Pour tester depuis cette page
+
+    1. Appeler `POST /authenticate` avec `admin` / `admin123`.
+    2. Copier la valeur de `jwtToken` dans la réponse.
+    3. Cliquer sur **Authorize** en haut à droite et la coller.
+    4. Les routes protégées deviennent utilisables.
+
+    ## Comptes créés par le service `seed`
+
+    | Identifiant | Mot de passe | Rôle |
+    |---|---|---|
+    | `admin` | `admin123` | Admin |
+    | `marie` | `admin123` | User |
+
+servers:
+  - url: http://localhost:8080
+    description: Pile docker compose locale
+
+tags:
+  - name: Authentification
+  - name: Livres
+  - name: Utilisateurs
+  - name: Emprunts
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Jeton renvoyé par POST /authenticate. Ajouté automatiquement par
+        auth.interceptor.ts côté Angular, et lu ici par JwtRequestFilter.
+
+  schemas:
+
+    Books:
+      type: object
+      properties:
+        bookId:
+          type: integer
+          readOnly: true
+          description: >
+            Attribué par hibernate_sequence, et non par un auto_increment :
+            l'entité déclare GenerationType.AUTO.
+          example: 1
+        bookName:
+          type: string
+          example: Le Petit Prince
+        bookAuthor:
+          type: string
+          example: Antoine de Saint-Exupéry
+        bookGenre:
+          type: string
+          example: Conte
+        noOfCopies:
+          type: integer
+          description: Décrémenté par un emprunt, incrémenté par un retour.
+          example: 5
+
+    Role:
+      type: object
+      properties:
+        roleId:
+          type: integer
+          readOnly: true
+          example: 1
+        roleName:
+          type: string
+          enum: [Admin, User]
+          example: Admin
+
+    Users:
+      type: object
+      properties:
+        userId:
+          type: integer
+          readOnly: true
+          example: 1
+        username:
+          type: string
+          example: marie
+        name:
+          type: string
+          example: Marie Dupont
+        password:
+          type: string
+          description: >
+            Chiffré en BCrypt par AdminController avant enregistrement.
+            ATTENTION : le haché est malgré tout renvoyé dans les réponses,
+            l'entité ne masque pas ce champ.
+          example: motdepasse
+        role:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+
+    Borrow:
+      type: object
+      properties:
+        borrowId:
+          type: integer
+          readOnly: true
+          description: Auto_increment, contrairement à bookId et userId.
+          example: 1
+        bookId:
+          type: integer
+          example: 3
+        userId:
+          type: integer
+          example: 2
+        issueDate:
+          type: string
+          readOnly: true
+          description: Formaté en dd-MM-yyyy par JsonDataSerializer.
+          example: 14-08-2026
+        dueDate:
+          type: string
+          readOnly: true
+          description: Fixée à 7 jours après l'emprunt.
+          example: 21-08-2026
+        returnDate:
+          type: string
+          readOnly: true
+          description: Nulle tant que le livre n'est pas rendu.
+          example: 18-08-2026
+
+    JwtRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          example: admin
+        password:
+          type: string
+          example: admin123
+
+    JwtResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/Users'
+        jwtToken:
+          type: string
+          example: eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiJ9...
+
+paths:
+
+  # ---------------------------------------------------------------------------
+  /authenticate:
+    post:
+      tags: [Authentification]
+      summary: Obtenir un jeton JWT
+      description: >
+        Seule route explicitement ouverte à tous dans WebSecurityConfiguration.
+        Renvoie l'utilisateur complet et son jeton.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JwtRequest'
+      responses:
+        '200':
+          description: Authentification réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JwtResponse'
+        '401':
+          description: Identifiants invalides
+
+  # ---------------------------------------------------------------------------
+  /admin/books:
+    get:
+      tags: [Livres]
+      summary: Lister tous les livres
+      description: >
+        Aucun @PreAuthorize sur cette méthode : n'importe quel utilisateur
+        authentifié y accède, quel que soit son rôle.
+
+        À noter : WebSecurityConfiguration ouvre "/admin/books/" — avec une
+        barre oblique finale — qui ne correspond à aucune route réelle. Cette
+        règle est donc sans effet, et l'authentification reste requise ici.
+      responses:
+        '200':
+          description: Liste des livres
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Books'
+        '401':
+          description: Jeton absent ou invalide (JwtAuthenticationEntryPoint)
+
+    post:
+      tags: [Livres]
+      summary: Créer un livre
+      description: Réservé au rôle Admin (@PreAuthorize).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Books'
+      responses:
+        '200':
+          description: Livre créé, avec son bookId attribué
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Books'
+        '401':
+          description: Jeton absent ou invalide
+        '403':
+          description: Authentifié, mais sans le rôle Admin
+
+  # ---------------------------------------------------------------------------
+  /admin/books/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+
+    get:
+      tags: [Livres]
+      summary: Consulter un livre
+      description: Réservé au rôle Admin.
+      responses:
+        '200':
+          description: Le livre demandé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Books'
+        '403':
+          description: Rôle insuffisant
+        '404':
+          description: Aucun livre avec cet identifiant (NotFoundException)
+
+    put:
+      tags: [Livres]
+      summary: Modifier un livre
+      description: Réservé au rôle Admin. Les quatre champs sont écrasés.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Books'
+      responses:
+        '200':
+          description: Livre modifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Books'
+        '403':
+          description: Rôle insuffisant
+        '404':
+          description: Aucun livre avec cet identifiant
+
+    delete:
+      tags: [Livres]
+      summary: Supprimer un livre
+      description: >
+        Réservé au rôle Admin. Aucun contrôle des emprunts en cours :
+        un livre emprunté peut être supprimé, laissant des lignes orphelines
+        dans la table borrow.
+      responses:
+        '200':
+          description: Suppression effectuée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+                    example: true
+        '403':
+          description: Rôle insuffisant
+        '404':
+          description: Aucun livre avec cet identifiant
+
+  # ---------------------------------------------------------------------------
+  /admin/users:
+    get:
+      tags: [Utilisateurs]
+      summary: Lister les utilisateurs
+      description: Réservé au rôle Admin.
+      responses:
+        '200':
+          description: Liste des utilisateurs, hachés de mots de passe compris
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Users'
+        '403':
+          description: Rôle insuffisant
+
+    post:
+      tags: [Utilisateurs]
+      summary: Créer un utilisateur
+      description: >
+        Le @PreAuthorize("hasRole('Admin')") est COMMENTÉ dans AdminController :
+        tout utilisateur authentifié peut donc créer un compte, y compris avec
+        le rôle Admin. Le mot de passe est chiffré en BCrypt à cet endroit.
+
+        C'est aussi pourquoi le premier administrateur ne peut pas naître de
+        cette route sur une base vide : elle exige déjà un jeton. D'où le
+        service seed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Users'
+      responses:
+        '200':
+          description: Utilisateur créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users'
+        '401':
+          description: Jeton absent ou invalide
+
+  # ---------------------------------------------------------------------------
+  /admin/users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+
+    get:
+      tags: [Utilisateurs]
+      summary: Consulter un utilisateur
+      description: Réservé au rôle Admin.
+      responses:
+        '200':
+          description: L'utilisateur demandé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users'
+        '403':
+          description: Rôle insuffisant
+        '404':
+          description: Aucun utilisateur avec cet identifiant
+
+    put:
+      tags: [Utilisateurs]
+      summary: Modifier un utilisateur
+      description: >
+        Réservé au rôle Admin. Le mot de passe n'est pas modifiable ici :
+        updateUser ne recopie que name, role et username.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Users'
+      responses:
+        '200':
+          description: Utilisateur modifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users'
+        '403':
+          description: Rôle insuffisant
+        '404':
+          description: Aucun utilisateur avec cet identifiant
+
+  # ---------------------------------------------------------------------------
+  # ATTENTION — Tout ce bloc est PUBLIC.
+  # WebSecurityConfiguration place "/borrow/**" en permitAll, et BorrowController
+  # ne porte aucun @PreAuthorize. Ces routes sont donc accessibles sans le
+  # moindre jeton. Voir la section "défaut relevé" du rapport.
+  # ---------------------------------------------------------------------------
+  /borrow:
+    get:
+      tags: [Emprunts]
+      summary: Lister tous les emprunts
+      description: >
+        PUBLIQUE, sans authentification : expose l'historique d'emprunt de
+        tous les utilisateurs à quiconque atteint le port 8080.
+      security: []
+      responses:
+        '200':
+          description: Tous les emprunts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Borrow'
+
+    post:
+      tags: [Emprunts]
+      summary: Emprunter un livre
+      description: >
+        PUBLIQUE. Le userId provient du corps de la requête et non de
+        l'utilisateur authentifié : n'importe qui peut emprunter au nom de
+        n'importe qui.
+
+        Seule route à écrire dans DEUX tables : UPDATE sur books
+        (noOfCopies décrémenté) puis INSERT dans borrow, le tout sans
+        @Transactional.
+
+        Renvoie du texte brut, pas du JSON. En rupture de stock, répond 200
+        avec un message d'erreur — un code 409 serait attendu.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bookId:
+                  type: integer
+                  example: 3
+                userId:
+                  type: integer
+                  example: 2
+      responses:
+        '200':
+          description: Emprunt enregistré, ou message de rupture de stock
+          content:
+            text/plain:
+              schema:
+                type: string
+              examples:
+                succes:
+                  value: Marie Dupont has borrowed one copy of "Ville cruelle"!
+                rupture:
+                  value: The book "Ville cruelle" is out of stock!
+        '500':
+          description: >
+            bookId ou userId inexistant. Le code appelle .get() sur un Optional
+            vide au lieu d'un orElseThrow : l'erreur remonte en 500 là où un
+            404 conviendrait.
+
+    put:
+      tags: [Emprunts]
+      summary: Rendre un livre
+      description: >
+        PUBLIQUE. Incrémente noOfCopies et pose la date de retour.
+        Attend un borrowId, non un bookId.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                borrowId:
+                  type: integer
+                  example: 1
+      responses:
+        '200':
+          description: Retour enregistré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Borrow'
+        '500':
+          description: borrowId inexistant
+
+  # ---------------------------------------------------------------------------
+  /borrow/user/{id}:
+    get:
+      tags: [Emprunts]
+      summary: Emprunts d'un utilisateur
+      description: PUBLIQUE.
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 2
+      responses:
+        '200':
+          description: Les emprunts de cet utilisateur
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Borrow'
+
+  # ---------------------------------------------------------------------------
+  /borrow/book/{id}:
+    get:
+      tags: [Emprunts]
+      summary: Historique d'un livre
+      description: PUBLIQUE.
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 3
+      responses:
+        '200':
+          description: L'historique d'emprunt de ce livre
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Borrow'
+
+# Toutes les routes exigent un jeton, sauf celles qui redéfinissent
+# "security: []" ci-dessus.
+security:
+  - bearerAuth: []
