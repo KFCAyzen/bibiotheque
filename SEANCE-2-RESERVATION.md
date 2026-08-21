@@ -14,11 +14,21 @@ touchée, et `pom.xml` reste intact — la contrainte de la séance 1 tient touj
 
 ## Capture Swagger
 
+Les cinq endpoints demandés, plus celui du bonus, sous le tag **Réservations** :
+
 ![Les endpoints du module Réservation dans Swagger UI](screenshots/swagger-reservations.png)
 
+Les codes de retour, ici sur `POST /api/reservations` — 201, 400, 401, 404, 409,
+chacun avec un exemple de corps de réponse, et les trois règles distinguées dans
+le menu *Examples* du 409 :
+
+![Les codes de retour de POST /api/reservations](screenshots/swagger-reservations-codes.png)
+
 La documentation est servie par le conteneur `bibliotheque-swagger` mis en place
-en séance 1 : `docker compose up -d`, puis <http://localhost:8081>. Les six
-opérations sont regroupées sous le tag **Réservations**.
+en séance 1 : `docker compose up -d`, puis <http://localhost:8081>.
+[Vue d'ensemble de l'API](screenshots/swagger-vue-ensemble.png), le module
+Réservation prenant place après Authentification, Livres, Utilisateurs et
+Emprunts.
 
 ---
 

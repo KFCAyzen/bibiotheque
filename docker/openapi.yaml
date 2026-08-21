@@ -710,6 +710,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-08-21T10:32:07.412'
+                statut: 400
+                erreur: Bad Request
+                message: 'Le champ « livreId » est obligatoire.'
         '401':
           description: Jeton absent ou invalide
         '404':
@@ -718,6 +723,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-08-21T10:32:07.412'
+                statut: 404
+                erreur: Not Found
+                message: "Aucun livre avec l'identifiant 987654."
         '409':
           description: >
             Règle de gestion enfreinte. Le message commence par la référence de
@@ -785,6 +795,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-08-21T10:32:07.412'
+                statut: 400
+                erreur: Bad Request
+                message: 'Statut « PIZZA » inconnu. Valeurs acceptées : EN_ATTENTE, DISPONIBLE, ANNULEE, EXPIREE, HONOREE.'
         '401':
           description: Jeton absent ou invalide
 
@@ -846,6 +861,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-08-21T10:32:07.412'
+                statut: 404
+                erreur: Not Found
+                message: "Aucune réservation avec l'identifiant 987654."
 
     delete:
       tags: [Réservations]
@@ -865,6 +885,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-08-21T10:32:07.412'
+                statut: 404
+                erreur: Not Found
+                message: "Aucune réservation avec l'identifiant 987654."
 
   # ---------------------------------------------------------------------------
   /api/reservations/{id}/annuler:
@@ -900,6 +925,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-08-21T10:32:07.412'
+                statut: 404
+                erreur: Not Found
+                message: "Aucune réservation avec l'identifiant 987654."
         '409':
           description: 'RG-05 / RG-06 : la réservation est déjà dans un statut définitif.'
           content:
