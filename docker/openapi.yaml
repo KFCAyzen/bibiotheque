@@ -48,6 +48,7 @@ tags:
   - name: Livres
   - name: Utilisateurs
   - name: Emprunts
+  - name: Réservations
 
 components:
   securitySchemes:
@@ -170,6 +171,100 @@ components:
         jwtToken:
           type: string
           example: eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiJ9...
+
+    # -------------------------------------------------------------------------
+    # Module Réservation (séance 2)
+    #
+    # Deux schémas distincts, et non l'entité : ReservationRequest décrit ce que
+    # le client a le droit d'envoyer, ReservationResponse ce que le serveur
+    # renvoie. C'est la traduction, en documentation, de la règle « l'entité
+    # Reservation ne sort jamais du service ».
+    # -------------------------------------------------------------------------
+
+    StatutReservation:
+      type: string
+      enum: [EN_ATTENTE, DISPONIBLE, ANNULEE, EXPIREE, HONOREE]
+      description: >
+        EN_ATTENTE et DISPONIBLE sont les statuts « actifs » : eux seuls
+        comptent pour RG-02 et RG-03, et eux seuls autorisent une annulation
+        (RG-05). ANNULEE, EXPIREE et HONOREE sont définitifs (RG-06).
+      example: EN_ATTENTE
+
+    ReservationRequest:
+      type: object
+      description: >
+        Le corps accepté par POST /api/reservations. Deux champs, pas un de
+        plus : les dates et le statut sont posés par le serveur. Envoyer un
+        dateExpiration n'aurait aucun effet — le champ est simplement ignoré.
+      required: [livreId, adherentId]
+      properties:
+        livreId:
+          type: integer
+          description: bookId d'un livre dont noOfCopies vaut 0 (RG-01).
+          example: 7
+        adherentId:
+          type: integer
+          description: userId de l'adhérent qui réserve.
+          example: 2
+
+    ReservationResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+          example: 1
+        livreId:
+          type: integer
+          example: 7
+        livreTitre:
+          type: string
+          example: Ville cruelle
+        adherentId:
+          type: integer
+          example: 2
+        adherentNom:
+          type: string
+          description: >
+            Le nom, et rien d'autre. Contrairement à /admin/users, aucun haché
+            de mot de passe ne transite : c'est tout l'intérêt du DTO.
+          example: Marie Dupont
+        dateReservation:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Horodatage serveur, ISO-8601.
+          example: '2026-08-21T10:32:07.412'
+        dateExpiration:
+          type: string
+          format: date-time
+          readOnly: true
+          description: 'RG-04 : dateReservation + 7 jours.'
+          example: '2026-08-28T10:32:07.412'
+        statut:
+          $ref: '#/components/schemas/StatutReservation'
+
+    ApiError:
+      type: object
+      description: >
+        Corps d'erreur du module Réservation. Un @ResponseStatus seul aurait
+        renvoyé le bon code avec un corps muet (server.error.include-message
+        vaut « never » depuis Spring Boot 2.3) : l'appelant aurait lu « 409 »
+        sans savoir quelle règle il enfreint.
+      properties:
+        horodatage:
+          type: string
+          format: date-time
+          example: '2026-08-21T10:32:07.412'
+        statut:
+          type: integer
+          example: 409
+        erreur:
+          type: string
+          example: Conflict
+        message:
+          type: string
+          example: 'RG-01 : le livre « Le Petit Prince » est disponible (5 exemplaire(s) en rayon) ; il doit être emprunté, pas réservé.'
 
 paths:
 
@@ -554,6 +649,268 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Borrow'
+
+  # ===========================================================================
+  # MODULE RÉSERVATION — séance 2
+  # ---------------------------------------------------------------------------
+  # Réserver, c'est se mettre en file d'attente sur un livre qu'on ne peut pas
+  # emprunter. Six règles encadrent le module ; chacune est implémentée dans
+  # ReservationService et citée par son numéro dans le message d'erreur.
+  #
+  #   RG-01  On ne réserve qu'un livre indisponible ...... verifierLivreIndisponible
+  #   RG-02  Une seule réservation active par livre ...... verifierAbsenceDeDoublon
+  #   RG-03  Trois réservations actives au maximum ....... verifierPlafondDeReservations
+  #   RG-04  Expiration = réservation + 7 jours .......... creer
+  #   RG-05  On n'annule que depuis un statut actif ...... annuler
+  #   RG-06  Un statut définitif ne change plus .......... StatutReservation.estDefinitif
+  #
+  # Contrairement à /borrow/**, ce bloc n'est PAS public : WebSecurityConfiguration
+  # laisse ces routes sous "anyRequest().authenticated()". Il faut donc un jeton,
+  # obtenu via POST /authenticate puis collé dans « Authorize ».
+  # ===========================================================================
+  /api/reservations:
+    post:
+      tags: [Réservations]
+      summary: Créer une réservation
+      description: >
+        Le client n'envoie que livreId et adherentId. dateReservation,
+        dateExpiration et statut sont déterminés par le serveur.
+
+
+        Ordre des contrôles : champs obligatoires (400), existence du livre et
+        de l'adhérent (404), puis règles de gestion (409). Un identifiant
+        inconnu est donc signalé comme tel avant qu'on ne se prononce sur la
+        disponibilité du livre.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservationRequest'
+      responses:
+        '201':
+          description: >
+            Réservation créée, au statut EN_ATTENTE. L'en-tête Location pointe
+            sur la ressource.
+          headers:
+            Location:
+              description: URL de la réservation créée
+              schema:
+                type: string
+                example: http://localhost:8080/api/reservations/1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '400':
+          description: >
+            livreId ou adherentId absent. Le message nomme le champ manquant :
+            « Le champ « livreId » est obligatoire. »
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Jeton absent ou invalide
+        '404':
+          description: Aucun livre, ou aucun adhérent, avec cet identifiant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: >
+            Règle de gestion enfreinte. Le message commence par la référence de
+            la règle : RG-01 (livre disponible), RG-02 (doublon actif) ou RG-03
+            (plus de trois réservations actives).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                RG-01:
+                  value:
+                    horodatage: '2026-08-21T10:32:07.412'
+                    statut: 409
+                    erreur: Conflict
+                    message: 'RG-01 : le livre « Le Petit Prince » est disponible (5 exemplaire(s) en rayon) ; il doit être emprunté, pas réservé.'
+                RG-02:
+                  value:
+                    horodatage: '2026-08-21T10:32:07.412'
+                    statut: 409
+                    erreur: Conflict
+                    message: 'RG-02 : Marie Dupont a déjà une réservation active sur « Ville cruelle ».'
+                RG-03:
+                  value:
+                    horodatage: '2026-08-21T10:32:07.412'
+                    statut: 409
+                    erreur: Conflict
+                    message: 'RG-03 : Marie Dupont a déjà 3 réservations actives ; le maximum est de 3.'
+
+    get:
+      tags: [Réservations]
+      summary: Lister les réservations
+      description: >
+        Les deux filtres sont facultatifs et cumulables. Un adherentId inconnu
+        ne déclenche pas de 404 : un filtre sans résultat renvoie une liste
+        vide, ce qui est la réponse correcte à « montre-moi ses réservations ».
+      parameters:
+        - name: statut
+          in: query
+          required: false
+          description: Filtre par statut. Insensible à la casse.
+          schema:
+            $ref: '#/components/schemas/StatutReservation'
+        - name: adherentId
+          in: query
+          required: false
+          description: Filtre par adhérent (userId).
+          schema:
+            type: integer
+          example: 2
+      responses:
+        '200':
+          description: Les réservations correspondant aux filtres
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReservationResponse'
+        '400':
+          description: >
+            Statut inconnu. Le message liste les valeurs acceptées plutôt que
+            de laisser échouer la conversion d'enum.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Jeton absent ou invalide
+
+  # ---------------------------------------------------------------------------
+  /api/reservations/expirees:
+    get:
+      tags: [Réservations]
+      summary: Lister les réservations expirées
+      description: >
+        BONUS. Les réservations au statut EXPIREE.
+
+
+        Le statut n'est pas déduit à l'affichage mais écrit en base par
+        ReservationExpirationScheduler, qui balaie les réservations échues
+        toutes les heures. Sinon une réservation périmée continuerait de peser
+        dans RG-02 et RG-03, et bloquerait l'adhérent.
+
+
+        Chemin littéral déclaré à côté de /{id} : Spring donne toujours la
+        priorité au littéral sur le gabarit, « expirees » n'est donc jamais
+        interprété comme un identifiant.
+      responses:
+        '200':
+          description: Les réservations expirées
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReservationResponse'
+        '401':
+          description: Jeton absent ou invalide
+
+  # ---------------------------------------------------------------------------
+  /api/reservations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+
+    get:
+      tags: [Réservations]
+      summary: Consulter une réservation
+      responses:
+        '200':
+          description: La réservation demandée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '401':
+          description: Jeton absent ou invalide
+        '404':
+          description: Aucune réservation avec cet identifiant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+    delete:
+      tags: [Réservations]
+      summary: Supprimer une réservation
+      description: >
+        Suppression définitive de la ligne, quel que soit son statut. À ne pas
+        confondre avec l'annulation : annuler conserve la trace au statut
+        ANNULEE, supprimer efface.
+      responses:
+        '204':
+          description: Suppression effectuée, sans corps de réponse
+        '401':
+          description: Jeton absent ou invalide
+        '404':
+          description: Aucune réservation avec cet identifiant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  # ---------------------------------------------------------------------------
+  /api/reservations/{id}/annuler:
+    patch:
+      tags: [Réservations]
+      summary: Annuler une réservation
+      description: >
+        Bascule le statut en ANNULEE. PATCH et non PUT : un seul champ change,
+        la ressource n'est pas remplacée.
+
+
+        RG-05 et RG-06 sont les deux faces du même contrôle : on n'annule que
+        depuis EN_ATTENTE ou DISPONIBLE, donc jamais depuis un statut définitif.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Réservation annulée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '401':
+          description: Jeton absent ou invalide
+        '404':
+          description: Aucune réservation avec cet identifiant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: 'RG-05 / RG-06 : la réservation est déjà dans un statut définitif.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-08-21T10:32:07.412'
+                statut: 409
+                erreur: Conflict
+                message: 'RG-05 : seule une réservation EN_ATTENTE ou DISPONIBLE peut être annulée ; celle-ci est ANNULEE. RG-06 : un statut définitif ne peut plus changer.'
 
 # Toutes les routes exigent un jeton, sauf celles qui redéfinissent
 # "security: []" ci-dessus.
