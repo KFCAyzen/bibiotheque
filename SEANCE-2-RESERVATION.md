@@ -189,6 +189,13 @@ Rejouable autant de fois que voulu : le script vide les tables avant d'écrire.
 Mot de passe `admin123` pour tous. Le compte `admin` est conservé : sans lui, plus
 de `POST /authenticate`, donc plus de jeton, donc aucune route utilisable.
 
+**Les réservations créées sont numérotées à partir de 100.** `Reservation`
+déclare `GenerationType.IDENTITY` : sa clé vient de l'`AUTO_INCREMENT` de MySQL,
+un compteur distinct de la `hibernate_sequence` qui numérote les livres et les
+utilisateurs, et que vider la table ne remet pas à zéro. Le script le force donc
+à 100 — ainsi un identifiant de réservation ne peut jamais être confondu avec un
+`livreId` (1 à 5) ou un `adherentId` (1 à 4) pendant les tests.
+
 Les libellés portent leur référence — `L2 — L'Étranger`, `A2 Quota à saturer` —
 ce qui rend les messages d'erreur lisibles sans table de correspondance :
 

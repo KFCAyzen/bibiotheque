@@ -25,13 +25,6 @@ info:
   description: |
     API REST du projet bibliothèque (Spring Boot 2.4.5).
 
-    ## Pour tester depuis cette page
-
-    1. Appeler `POST /authenticate` avec `admin` / `admin123`.
-    2. Copier la valeur de `jwtToken` dans la réponse.
-    3. Cliquer sur **Authorize** en haut à droite et la coller.
-    4. Les routes protégées deviennent utilisables.
-
     ## Comptes disponibles
 
     Mot de passe `admin123` pour tous.
@@ -140,8 +133,10 @@ components:
         borrowId:
           type: integer
           readOnly: true
-          description: Auto_increment, contrairement à bookId et userId.
-          example: 1
+          description: >
+            Auto_increment, contrairement à bookId et userId. Le jeu de données
+            de test démarre ce compteur à 100.
+          example: 100
         bookId:
           type: integer
           example: 3
@@ -224,7 +219,12 @@ components:
         id:
           type: integer
           readOnly: true
-          example: 1
+          description: >
+            Auto_increment MySQL, distinct de hibernate_sequence qui numérote
+            les livres et les utilisateurs. Le jeu de données de test démarre
+            ce compteur à 100, pour qu'un identifiant de réservation ne puisse
+            pas être confondu avec un livreId ou un adherentId.
+          example: 100
         livreId:
           type: integer
           example: 2
@@ -602,7 +602,7 @@ paths:
               properties:
                 borrowId:
                   type: integer
-                  example: 1
+                  example: 100
       responses:
         '200':
           description: Retour enregistré
@@ -708,7 +708,7 @@ paths:
               description: URL de la réservation créée
               schema:
                 type: string
-                example: http://localhost:8080/api/reservations/1
+                example: http://localhost:8080/api/reservations/100
           content:
             application/json:
               schema:
@@ -852,7 +852,7 @@ paths:
         required: true
         schema:
           type: integer
-        example: 1
+        example: 100
 
     get:
       tags: [Réservations]
@@ -920,7 +920,7 @@ paths:
           required: true
           schema:
             type: integer
-          example: 1
+          example: 100
       responses:
         '200':
           description: Réservation annulée

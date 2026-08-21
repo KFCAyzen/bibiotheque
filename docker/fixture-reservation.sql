@@ -25,6 +25,16 @@ DELETE FROM user_role;
 DELETE FROM users;
 DELETE FROM books;
 
+-- --- Les compteurs des tables à AUTO_INCREMENT -------------------------------
+-- Reservation et Borrow déclarent GenerationType.IDENTITY : leur clé vient de
+-- l'AUTO_INCREMENT de MySQL, un compteur distinct de hibernate_sequence — que
+-- vider la table ne remet pas à zéro, et que le UPDATE du bas ne touche pas.
+--
+-- On les démarre à 100 pour que ces identifiants ne puissent jamais être
+-- confondus avec un livreId (1 à 5) ou un adherentId (1 à 4) pendant les tests.
+ALTER TABLE reservation AUTO_INCREMENT = 100;
+ALTER TABLE borrow AUTO_INCREMENT = 100;
+
 -- --- Les rôles ---------------------------------------------------------------
 INSERT IGNORE INTO role (role_id, role_name) VALUES
     (1, 'Admin'),
