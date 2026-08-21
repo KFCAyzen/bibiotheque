@@ -183,6 +183,56 @@ changement de signature côté contrôleur.
 
 ---
 
+## Rejouer le scénario de test
+
+`docker/fixture-reservation.sql` remet la base dans l'état exact où les six
+règles se démontrent — sans quoi il faut d'abord fabriquer à la main des livres
+indisponibles, puisque RG-01 refuse de réserver ce qui est en rayon.
+
+```bash
+docker compose up -d
+docker cp docker/fixture-reservation.sql bibliotheque-db:/tmp/fixture.sql
+docker exec bibliotheque-db sh -c \
+  'mysql --default-character-set=utf8mb4 -uroot -p"$MYSQL_ROOT_PASSWORD" bibliotheque < /tmp/fixture.sql'
+```
+
+Rejouable autant de fois que voulu : le script vide les tables avant d'écrire.
+
+| Réf. | `id` | Contenu | État |
+|---|---|---|---|
+| **L1** | 1 | L1 — Le Petit Prince | 3 exemplaires, **disponible**, aucun emprunt |
+| **L2 à L5** | 2, 3, 4, 5 | L'Étranger, Une si longue lettre, Ville cruelle, Le Vieux Nègre et la Médaille | 0 exemplaire, **empruntés par A3 et non rendus** |
+| **A1** | 2 | `a1` — A1 Réservataire principal | rôle User |
+| **A2** | 3 | `a2` — A2 Quota à saturer | rôle User |
+| **A3** | 4 | `a3` — A3 Emprunteur | rôle User, détient L2 à L5 |
+
+Mot de passe `admin123` pour tous. Le compte `admin` est conservé : sans lui, plus
+de `POST /authenticate`, donc plus de jeton, donc aucune route utilisable.
+
+Les libellés portent leur référence — `L2 — L'Étranger`, `A2 Quota à saturer` —
+ce qui rend les messages d'erreur lisibles sans table de correspondance :
+
+```
+RG-01 : le livre « L1 — Le Petit Prince » est disponible (3 exemplaire(s) en rayon) ;
+        il doit être emprunté, pas réservé.
+```
+
+Ce que le jeu de données permet de démontrer, dans l'ordre :
+
+| Règle | Manipulation | Attendu |
+|---|---|---|
+| RG-01 | réserver **L1** | 409 |
+| RG-02 | A1 réserve **L2**, puis **L2** à nouveau | 201 puis 409 |
+| RG-03 | A2 réserve **L2**, **L3**, **L4**, puis **L5** | 201 × 3 puis 409 |
+| RG-04 | lire `dateExpiration` du 201 | réservation + 7 jours |
+| RG-05 / RG-06 | annuler une réservation d'A1, puis la réannuler | 200 puis 409 |
+
+Les identifiants réutilisent ceux de `docker/seed.sql` : le service `seed`, qui
+rejoue ses `INSERT IGNORE` à chaque `docker compose up`, les saute au lieu de
+réintroduire l'ancien contenu par-dessus.
+
+---
+
 ## Vérifications
 
 Compilation et tests unitaires, dans l'image de build du projet :
