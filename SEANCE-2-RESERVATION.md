@@ -144,6 +144,35 @@ Les trois pistes de l'énoncé sont traitées.
 
 ---
 
+## Défaut connu : l'adhérent n'est pas celui qui parle
+
+Le module applique bien ses six règles, mais il ne vérifie **pas** que l'adhérent
+au nom duquel on agit est celui qui est authentifié. Concrètement, tout compte
+authentifié peut :
+
+- réserver au nom de quelqu'un d'autre, en changeant `adherentId` dans le corps ;
+- annuler ou supprimer la réservation d'un autre adhérent, en changeant `{id}` ;
+- lire les réservations de n'importe qui, via `GET /api/reservations?adherentId=`.
+
+C'est le même défaut que celui relevé en séance 1 sur `/borrow/**`, où `userId`
+vient du corps de la requête et non du jeton — à ceci près qu'ici il faut au
+moins être authentifié.
+
+**Pourquoi ce n'est pas corrigé.** L'énoncé fixe le contrat : « le client n'envoie
+que `livreId` et `adherentId` », et la liste est « filtrable par adhérent ».
+Déduire l'adhérent du principal, comme il le faudrait, supprimerait le champ
+imposé et le filtre demandé.
+
+**Ce qu'il faudrait faire**, hors contrainte d'énoncé : lire l'utilisateur
+authentifié (`SecurityContextHolder`), forcer `adherentId` à son identifiant pour
+un rôle `User`, ne laisser un `Admin` viser un autre adhérent que sur contrôle
+explicite, et comparer le propriétaire de la réservation au principal avant
+d'annuler ou de supprimer — un 403 sinon. Le point d'insertion naturel est
+`ReservationService`, avant les règles de gestion : trois contrôles, aucun
+changement de signature côté contrôleur.
+
+---
+
 ## Vérifications
 
 Compilation et tests unitaires, dans l'image de build du projet :
