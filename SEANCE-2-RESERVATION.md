@@ -14,7 +14,7 @@ touchée, et `pom.xml` reste intact — la contrainte de la séance 1 tient touj
 
 ## Capture Swagger
 
-Les cinq endpoints demandés, plus celui du bonus, sous le tag **Réservations** :
+Les cinq endpoints, sous le tag **Réservations** :
 
 ![Les endpoints du module Réservation dans Swagger UI](screenshots/swagger-reservations.png)
 
@@ -41,7 +41,6 @@ Emprunts.
 | GET | `/api/reservations/{id}` | Consulter | 200 | 404 |
 | PATCH | `/api/reservations/{id}/annuler` | Annuler | 200 | 404, 409 |
 | DELETE | `/api/reservations/{id}` | Supprimer | 204 | 404 |
-| GET | `/api/reservations/expirees` | **Bonus** — lister les réservations expirées | 200 | — |
 
 Le client n'envoie que `livreId` et `adherentId`. `dateReservation`,
 `dateExpiration` et `statut` sont déterminés par le serveur.
@@ -76,7 +75,7 @@ Chaque message d'erreur 409 commence par la référence de la règle enfreinte :
   "horodatage": "2026-08-21T09:48:13.695",
   "statut": 409,
   "erreur": "Conflict",
-  "message": "RG-03 : Marie Dupont a déjà 3 réservations actives ; le maximum est de 3."
+  "message": "RG-03 : A2 Quota à saturer a déjà 3 réservations actives ; le maximum est de 3."
 }
 ```
 
@@ -95,15 +94,13 @@ Le découpage du projet existant est repris tel quel : `entity`, `dao`,
 | `dto/ReservationRequestDTO.java` | Deux champs : `livreId`, `adherentId`. |
 | `dto/ReservationResponseDTO.java` | La vue de sortie, relations aplaties en identifiant + libellé. |
 | `service/ReservationService.java` | Validation, chargement, les six règles, conversion en DTO. |
-| `controller/ReservationController.java` | Les six routes. Aucune décision métier. |
+| `controller/ReservationController.java` | Les routes du module. Aucune décision métier. |
 | `exceptions/BadRequestException.java` | 400. |
 | `exceptions/ConflictException.java` | 409, règle de gestion enfreinte. |
 | `exceptions/ApiError.java` | Le corps JSON des erreurs. |
 | `exceptions/ReservationExceptionHandler.java` | La traduction exception → réponse HTTP. |
-| `configuration/ReservationExpirationScheduler.java` | **Bonus** — bascule horaire des réservations échues en EXPIREE. |
 | `configuration/CorsConfiguration.java` | *(modifié)* ajout de PATCH. |
-| `docker/openapi.yaml` | *(modifié)* les six opérations, leurs codes de retour et leurs exemples d'erreur. |
-| `src/test/.../ReservationServiceTest.java` | **Bonus** — 10 tests unitaires sur les six règles. |
+| `docker/openapi.yaml` | *(modifié)* les opérations du module, leurs codes de retour et leurs exemples d'erreur. |
 
 **L'entité ne sort jamais du service.** Le contrôleur ne connaît que les deux
 DTO. C'est aussi ce qui évite de rejouer le défaut relevé en séance 1 sur
@@ -134,23 +131,6 @@ et l'annulation restait injoignable depuis un navigateur — Angular sur `:4200`
 comme Swagger UI sur `:8081` — alors qu'elle répondait parfaitement en `curl`.
 Une ligne ajoutée, et le prévol renvoie bien `Access-Control-Allow-Methods: ...
 PATCH`.
-
----
-
-## Bonus
-
-Les trois pistes de l'énoncé sont traitées.
-
-- **Tests unitaires.** `ReservationServiceTest` couvre les six règles, dont deux
-  cas pour RG-03 : la quatrième réservation refusée, et la troisième encore
-  acceptée. Dépôts simulés avec Mockito, aucun contexte Spring, aucune base.
-  `mvn test -Dtest=ReservationServiceTest` → **10 tests, 0 échec**.
-- **Endpoint des réservations expirées.** `GET /api/reservations/expirees`.
-- **Expiration automatique.** `ReservationExpirationScheduler` balaie chaque
-  heure les réservations actives dont la date est dépassée et les bascule en
-  EXPIREE. Le statut est écrit en base, et non déduit à l'affichage : une
-  réservation périmée qui resterait EN_ATTENTE continuerait de peser dans RG-02
-  et RG-03, et bloquerait l'adhérent pour rien.
 
 ---
 

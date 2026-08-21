@@ -32,12 +32,23 @@ info:
     3. Cliquer sur **Authorize** en haut à droite et la coller.
     4. Les routes protégées deviennent utilisables.
 
-    ## Comptes créés par le service `seed`
+    ## Comptes disponibles
 
-    | Identifiant | Mot de passe | Rôle |
+    Mot de passe `admin123` pour tous.
+
+    | Identifiant | Rôle | Rôle dans le scénario de test |
     |---|---|---|
-    | `admin` | `admin123` | Admin |
-    | `marie` | `admin123` | User |
+    | `admin` | Admin | administration des livres et des utilisateurs |
+    | `a1` | User | **A1**, adhérent réservataire — `adherentId` = 2 |
+    | `a2` | User | **A2**, celui qui saturera son quota (RG-03) — `adherentId` = 3 |
+    | `a3` | User | **A3**, l'emprunteur : il détient L2 à L5 — `adherentId` = 4 |
+
+    ## Livres du scénario de test
+
+    | Réf. | `livreId` | État |
+    |---|---|---|
+    | **L1** | 1 | disponible, 3 exemplaires — le réserver déclenche RG-01 |
+    | **L2** à **L5** | 2, 3, 4, 5 | empruntés par A3 et non rendus — réservables |
 
 servers:
   - url: http://localhost:8080
@@ -74,7 +85,7 @@ components:
           example: 1
         bookName:
           type: string
-          example: Le Petit Prince
+          example: L1 — Le Petit Prince
         bookAuthor:
           type: string
           example: Antoine de Saint-Exupéry
@@ -84,7 +95,7 @@ components:
         noOfCopies:
           type: integer
           description: Décrémenté par un emprunt, incrémenté par un retour.
-          example: 5
+          example: 3
 
     Role:
       type: object
@@ -107,10 +118,10 @@ components:
           example: 1
         username:
           type: string
-          example: marie
+          example: a1
         name:
           type: string
-          example: Marie Dupont
+          example: A1 Réservataire principal
         password:
           type: string
           description: >
@@ -201,7 +212,7 @@ components:
         livreId:
           type: integer
           description: bookId d'un livre dont noOfCopies vaut 0 (RG-01).
-          example: 7
+          example: 2
         adherentId:
           type: integer
           description: userId de l'adhérent qui réserve.
@@ -216,10 +227,10 @@ components:
           example: 1
         livreId:
           type: integer
-          example: 7
+          example: 2
         livreTitre:
           type: string
-          example: Ville cruelle
+          example: L2 — L'Étranger
         adherentId:
           type: integer
           example: 2
@@ -228,7 +239,7 @@ components:
           description: >
             Le nom, et rien d'autre. Contrairement à /admin/users, aucun haché
             de mot de passe ne transite : c'est tout l'intérêt du DTO.
-          example: Marie Dupont
+          example: A1 Réservataire principal
         dateReservation:
           type: string
           format: date-time
@@ -264,7 +275,7 @@ components:
           example: Conflict
         message:
           type: string
-          example: 'RG-01 : le livre « Le Petit Prince » est disponible (5 exemplaire(s) en rayon) ; il doit être emprunté, pas réservé.'
+          example: 'RG-01 : le livre « L1 — Le Petit Prince » est disponible (3 exemplaire(s) en rayon) ; il doit être emprunté, pas réservé.'
 
 paths:
 
@@ -566,9 +577,9 @@ paths:
                 type: string
               examples:
                 succes:
-                  value: Marie Dupont has borrowed one copy of "Ville cruelle"!
+                  value: A3 Emprunteur has borrowed one copy of "L4 — Ville cruelle"!
                 rupture:
-                  value: The book "Ville cruelle" is out of stock!
+                  value: The book "L4 — Ville cruelle" is out of stock!
         '500':
           description: >
             bookId ou userId inexistant. Le code appelle .get() sur un Optional
@@ -743,19 +754,19 @@ paths:
                     horodatage: '2026-08-21T10:32:07.412'
                     statut: 409
                     erreur: Conflict
-                    message: 'RG-01 : le livre « Le Petit Prince » est disponible (5 exemplaire(s) en rayon) ; il doit être emprunté, pas réservé.'
+                    message: 'RG-01 : le livre « L1 — Le Petit Prince » est disponible (3 exemplaire(s) en rayon) ; il doit être emprunté, pas réservé.'
                 RG-02:
                   value:
                     horodatage: '2026-08-21T10:32:07.412'
                     statut: 409
                     erreur: Conflict
-                    message: 'RG-02 : Marie Dupont a déjà une réservation active sur « Ville cruelle ».'
+                    message: 'RG-02 : A1 Réservataire principal a déjà une réservation active sur « L2 — L''Étranger ».'
                 RG-03:
                   value:
                     horodatage: '2026-08-21T10:32:07.412'
                     statut: 409
                     erreur: Conflict
-                    message: 'RG-03 : Marie Dupont a déjà 3 réservations actives ; le maximum est de 3.'
+                    message: 'RG-03 : A2 Quota à saturer a déjà 3 réservations actives ; le maximum est de 3.'
 
     get:
       tags: [Réservations]
