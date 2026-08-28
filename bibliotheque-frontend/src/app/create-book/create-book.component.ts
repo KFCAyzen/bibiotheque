@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Books } from '../_model/books';
 import { BooksService } from '../_service/books.service';
+import { NotificationService } from '../_service/notification.service';
 
 @Component({
   selector: 'app-create-book',
@@ -12,6 +13,7 @@ export class CreateBookComponent implements OnInit {
 
   book: Books = new Books();
   constructor(private booksService: BooksService,
+    private notifications: NotificationService,
     private router: Router) { }
 
   ngOnInit(): void {
@@ -19,10 +21,17 @@ export class CreateBookComponent implements OnInit {
 
   saveBook() {
     this.booksService.createBook(this.book).subscribe(data => {
-      console.log(data);
+      this.notifications.succes(
+        'Book created',
+        `"${this.book.bookName}" has been added to the catalogue.`
+      );
       this.goToBooksList();
     },
-    error => console.log(error));
+    error => this.notifications.refus(
+      'Book not created',
+      this.messageFromError(error),
+      this.detailFromError(error)
+    ));
   }
 
   goToBooksList() {
@@ -30,8 +39,17 @@ export class CreateBookComponent implements OnInit {
   }
 
   onSubmit() {
-    console.log(this.book);
     this.saveBook();
+  }
+
+  private messageFromError(error: any): string {
+    return error?.error?.message
+      || error?.error
+      || 'The server refused the book creation request.';
+  }
+
+  private detailFromError(error: any): string | null {
+    return error?.status ? `HTTP ${error.status}` : null;
   }
 
 }

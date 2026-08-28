@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Users } from '../_model/users';
+import { NotificationService } from '../_service/notification.service';
 import { UsersService } from '../_service/users.service';
 
 @Component({
@@ -13,6 +14,7 @@ export class UsersListComponent implements OnInit {
   users: Users[];
 
   constructor(private usersService: UsersService,
+    private notifications: NotificationService,
     private router: Router) { }
 
   ngOnInit(): void {
@@ -27,9 +29,15 @@ export class UsersListComponent implements OnInit {
   }
 
   private getUsers() {
-    this.usersService.getUsersList().subscribe(data =>{
-      this.users = data;
-      console.log(this.users);
+    this.usersService.getUsersList().subscribe({
+      next: data =>{
+        this.users = data;
+      },
+      error: error => this.notifications.refus(
+        'Users not loaded',
+        this.messageFromError(error),
+        this.detailFromError(error)
+      )
     });
   }
 
@@ -39,6 +47,16 @@ export class UsersListComponent implements OnInit {
 
   updateUser(userId: number) {
     this.router.navigate(['update-user', userId ]);
+  }
+
+  private messageFromError(error: any): string {
+    return error?.error?.message
+      || error?.error
+      || 'The server refused the user request.';
+  }
+
+  private detailFromError(error: any): string | null {
+    return error?.status ? `HTTP ${error.status}` : null;
   }
 
 }
