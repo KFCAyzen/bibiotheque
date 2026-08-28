@@ -1,0 +1,128 @@
+<div class="bandeau-liste">
+  <div>
+    <h3 class="mb-0">Le registre</h3>
+    <p class="etiquette mb-0 mt-1" *ngIf="!chargement && !erreur">
+      {{ reservationsAffichees.length }} fiche(s)<span *ngIf="filtreStatut"> · {{ libelleDuStatut(filtreStatut) }}</span>
+    </p>
+  </div>
+
+  <div class="d-flex align-items-center gap-2">
+    <label class="form-label mb-0" for="filtre-statut">Statut</label>
+    <select id="filtre-statut"
+            class="form-select w-auto"
+            [ngModel]="filtreStatut"
+            (ngModelChange)="filtreStatutChange.emit($event)"
+            [disabled]="chargement">
+      <option value="">Tous</option>
+      <option *ngFor="let statut of statuts" [value]="statut.valeur">{{ statut.libelle }}</option>
+    </select>
+  </div>
+</div>
+
+<div class="zone-etat">
+
+  <!-- ÉTAT 1 — Chargement : visible tant que la réponse n'est pas là. -->
+  <div class="etat-centre" *ngIf="chargement">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Chargement en cours</span>
+    </div>
+    <p class="etiquette mt-3 mb-0">Lecture du registre</p>
+  </div>
+
+  <!-- ÉTAT 2 — Erreur : ce qui s'est passé, et de quoi réessayer. -->
+  <div class="alert alert-danger" *ngIf="!chargement && erreur">
+    <h5 class="alert-heading">Le registre n'a pas pu être lu</h5>
+    <p class="mb-2">{{ erreur }}</p>
+    <p class="etiquette mb-2" *ngIf="detailErreur">{{ detailErreur }}</p>
+    <button type="button" class="btn btn-sm btn-outline-danger" (click)="reessayer.emit()">
+      Réessayer
+    </button>
+  </div>
+
+  <!-- ÉTAT 3 — Liste vide : un message, pas un tableau sans lignes. -->
+  <div class="etat-vide"
+       *ngIf="!chargement && !erreur && reservationsAffichees.length === 0">
+    <p class="mb-0" *ngIf="!filtreStatut">
+      Aucune fiche ouverte. Réservez un ouvrage déjà sorti pour en ouvrir une.
+    </p>
+    <p class="mb-0" *ngIf="filtreStatut">
+      Aucune fiche au statut {{ libelleDuStatut(filtreStatut) }}.
+    </p>
+  </div>
+
+  <!-- ÉTAT 4 — Données. -->
+  <div class="table-responsive"
+       *ngIf="!chargement && !erreur && reservationsAffichees.length > 0">
+    <table class="table align-middle">
+      <thead>
+        <tr>
+          <th scope="col">Ouvrage</th>
+          <th scope="col">Adhérent</th>
+          <th scope="col">Statut</th>
+          <th scope="col">Ouverte le</th>
+          <th scope="col" class="entete-triable" (click)="basculerLeTri()"
+              title="Trier par date d'expiration">
+            Validité
+            <span aria-hidden="true">{{ triCroissant ? '▲' : '▼' }}</span>
+          </th>
+          <th scope="col"><span class="visually-hidden">Action</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let reservation of reservationsAffichees; trackBy: identifiant">
+
+          <!-- Le titre porte le sérif : c'est le sujet de la ligne. Le numéro
+               de fiche sous lui est celui qu'a attribué le serveur — c'est la
+               référence que le guichet cite au téléphone. -->
+          <td class="ouvrage">
+            {{ reservation.livreTitre }}
+            <div class="cote">fiche n° {{ reservation.id }}</div>
+          </td>
+
+          <td>{{ reservation.adherentNom }}</td>
+
+          <td>
+            <span class="tampon {{ encreDuStatut(reservation.statut) }}">
+              {{ libelleDuStatut(reservation.statut) }}
+            </span>
+          </td>
+
+          <td class="releve">{{ reservation.dateReservation | date:'dd/MM/yy' }}</td>
+
+          <!-- La date seule oblige à faire le calcul de tête. La jauge montre
+               ce qu'il reste ; la date demeure au-dessus pour la référence. -->
+          <td class="cellule-validite">
+            <div class="releve">{{ reservation.dateExpiration | date:'dd/MM/yyyy' }}</div>
+
+            <div class="jauge" *ngIf="afficheLaJauge(reservation)"
+                 [attr.aria-label]="joursRestants(reservation) + ' jour(s) restant(s)'">
+              <span class="jauge-cran"
+                    *ngFor="let cran of crans; let i = index"
+                    [class.consomme]="i < cransConsommes(reservation)"
+                    [class.dernier]="estUrgent(reservation) && i < cransConsommes(reservation)"
+                    aria-hidden="true"></span>
+              <span class="jauge-reste" [class.urgent]="estUrgent(reservation)">
+                {{ joursRestants(reservation) }} j
+              </span>
+            </div>
+          </td>
+
+          <td class="text-end">
+            <!-- Le bouton n'existe que pour les statuts que RG-05 autorise. -->
+            <button type="button"
+                    class="btn btn-sm btn-danger"
+                    *ngIf="estAnnulable(reservation)"
+                    [disabled]="idEnCoursAnnulation !== null"
+                    (click)="annulationDemandee.emit(reservation)">
+              <span class="spinner-border spinner-border-sm me-1"
+                    *ngIf="idEnCoursAnnulation === reservation.id"></span>
+              Annuler
+            </button>
+            <span class="etiquette" *ngIf="!estAnnulable(reservation)">close</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>

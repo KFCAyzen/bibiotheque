@@ -30,7 +30,11 @@ export class AuthInterceptor implements HttpInterceptor {
                 } else if(err.status === 403) {
                     this.router.navigate(['/forbidden']);
                 }
-                return throwError("Some thing is wrong");
+                // On relaie l'erreur d'origine au lieu de la remplacer par
+                // une chaine fixe : sans elle, l'appelant perd le code HTTP et
+                // le corps ApiError, donc le message que l'ecran des
+                // reservations doit afficher pour un 400, un 404 ou un 409.
+                return throwError(() => err);
             }
         )
     );

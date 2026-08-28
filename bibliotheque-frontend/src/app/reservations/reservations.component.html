@@ -1,0 +1,80 @@
+<header class="entete-page">
+  <h1 class="mb-0">Réservations</h1>
+  <p class="chapeau mb-0">
+    Un ouvrage déjà sorti se réserve ; un ouvrage en rayon s'emprunte.
+  </p>
+</header>
+
+<div class="row g-4">
+
+  <!-- Formulaire de création. En dessous de 1200 px, il passe au-dessus de la
+       liste plutôt qu'à côté : sur un écran étroit, le tableau a besoin de
+       toute la largeur. -->
+  <div class="col-12 col-xl-3">
+    <app-reservation-form
+      [livres]="livres"
+      [adherents]="adherents"
+      [chargementReferences]="chargementReferences"
+      [erreurReferences]="erreurReferences"
+      [detailReferences]="detailReferences"
+      [creationEnCours]="creationEnCours"
+      [reservationsActives]="reservationsActives"
+      [compteurIndisponible]="compteurIndisponible"
+      (creer)="creerLaReservation($event)"
+      (rechargerReferences)="chargerLesReferences()"
+      (adherentSelectionne)="surSelectionDAdherent($event)">
+    </app-reservation-form>
+  </div>
+
+  <div class="col-12 col-xl-9">
+    <app-reservation-list
+      [reservations]="reservations"
+      [chargement]="chargement"
+      [erreur]="erreurChargement"
+      [detailErreur]="detailChargement"
+      [filtreStatut]="filtreStatut"
+      [idEnCoursAnnulation]="idEnCoursAnnulation"
+      (filtreStatutChange)="surChangementDeFiltre($event)"
+      (reessayer)="chargerLesReservations()"
+      (annulationDemandee)="demanderLAnnulation($event)">
+    </app-reservation-list>
+  </div>
+
+</div>
+
+<!-- Confirmation avant l'appel à PATCH /api/reservations/{id}/annuler.
+     Une boîte de dialogue de l'application, pas un confirm() du navigateur :
+     elle nomme la réservation concernée et reste dans la langue de l'écran. -->
+<div class="voile" *ngIf="reservationAAnnuler">
+  <div class="boite-confirmation">
+    <p class="etiquette mb-2">fiche n° {{ reservationAAnnuler.id }}</p>
+
+    <h3 class="mb-3">Annuler cette réservation ?</h3>
+
+    <p class="mb-2">
+      « {{ reservationAAnnuler.livreTitre }} », au nom de
+      {{ reservationAAnnuler.adherentNom }}.
+    </p>
+    <p class="text-muted mb-4">
+      Le statut passera à Annulée. Un statut définitif ne peut plus changer :
+      la réservation ne pourra pas être rétablie.
+    </p>
+
+    <div class="d-flex flex-wrap justify-content-end gap-2">
+      <button type="button"
+              class="btn btn-secondary"
+              [disabled]="idEnCoursAnnulation !== null"
+              (click)="renoncerALAnnulation()">
+        Revenir
+      </button>
+      <button type="button"
+              class="btn btn-danger"
+              [disabled]="idEnCoursAnnulation !== null"
+              (click)="confirmerLAnnulation()">
+        <span class="spinner-border spinner-border-sm me-2"
+              *ngIf="idEnCoursAnnulation !== null"></span>
+        Annuler la réservation
+      </button>
+    </div>
+  </div>
+</div>

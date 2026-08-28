@@ -1,0 +1,33 @@
+<!-- aria-live sur le conteneur, pas sur chaque fiche : la zone doit exister
+     avant qu'une notification y arrive, sinon rien n'est annoncé. -->
+<div class="pile" aria-live="polite" aria-relevant="additions">
+
+  <div class="billet"
+       *ngFor="let notification of notifications; trackBy: identifiant"
+       [class.billet-succes]="notification.ton === 'succes'"
+       [class.billet-refus]="notification.ton === 'refus'"
+       [attr.role]="roleAria(notification)">
+
+    <div class="billet-corps">
+      <p class="billet-titre">{{ notification.titre }}</p>
+      <p class="billet-message">{{ notification.message }}</p>
+      <p class="billet-detail" *ngIf="notification.detail">{{ notification.detail }}</p>
+    </div>
+
+    <button type="button"
+            class="billet-fermer"
+            (click)="fermer(notification)"
+            [attr.aria-label]="'Fermer : ' + notification.titre">
+      <span aria-hidden="true">×</span>
+    </button>
+
+    <!-- Le temps qu'il reste au billet, dit de la même façon que le temps qui
+         reste à une réservation : un filet qui se vide. Seules les
+         notifications à durée limitée en portent un. -->
+    <span class="billet-sablier"
+          *ngIf="notification.duree !== null"
+          [style.animation-duration.ms]="notification.duree"
+          aria-hidden="true"></span>
+  </div>
+
+</div>

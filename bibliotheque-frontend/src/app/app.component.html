@@ -1,4 +1,8 @@
 <app-header></app-header>
-<div class="container" style="margin-top: 20px;">
+<div class="container" style="margin-top: 2.25rem; margin-bottom: 4rem;">
   <router-outlet></router-outlet>
 </div>
+
+<!-- La pile vit hors du router-outlet : une confirmation reste lisible même si
+     l'utilisateur change d'écran juste après l'avoir déclenchée. -->
+<app-notifications></app-notifications>

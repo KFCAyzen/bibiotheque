@@ -1,0 +1,80 @@
+/* Le formulaire est une fiche vierge posée à côté du registre. */
+.carte-formulaire {
+  background-color: var(--fiche);
+  border: 1px solid var(--trait);
+  border-radius: var(--coupe);
+  box-shadow: 0 1px 0 rgba(36, 31, 26, 0.07);
+  padding: 1.15rem 1.25rem 1.25rem;
+}
+
+/* Il reste visible pendant qu'on fait défiler un long registre — mais
+   seulement quand il est réellement à côté de lui. En dessous de 1200 px il
+   est empilé au-dessus de la liste, et le rendre collant y masquerait le
+   contenu au lieu de l'accompagner. */
+@media (min-width: 1200px) {
+  .carte-formulaire {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+/* --------------------------------------------------------------- le quota
+   RG-03 plafonne les réservations actives d'un adhérent. Un cran par
+   réservation permise : la place restante se voit avant d'être lue. */
+
+.quota {
+  margin-top: 1.1rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--trait);
+  border-left: 3px solid var(--trait-fort);
+  border-radius: var(--coupe);
+  background-color: rgba(36, 31, 26, 0.035);
+}
+
+.quota-crans {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 0.45rem;
+}
+
+.quota-cran {
+  flex: 1;
+  height: 5px;
+  border: 1px solid var(--trait-fort);
+  border-radius: 1px;
+  background-color: transparent;
+}
+
+.quota-cran.pris {
+  background-color: var(--tampon);
+  border-color: var(--tampon);
+}
+
+.quota-cran.pris.sature {
+  background-color: var(--refus);
+  border-color: var(--refus);
+}
+
+.quota-texte {
+  font-family: var(--machine);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--encre-douce);
+}
+
+.quota-texte.sature {
+  color: var(--refus);
+  font-weight: 700;
+}
+
+/* Compteur illisible : une mention discrète, ni alerte ni jauge. L'opération
+   n'est pas compromise, c'est l'indicateur qui manque. */
+.quota-muet {
+  margin: 1.1rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--trait-fort);
+  border-radius: var(--coupe);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--encre-pale);
+}

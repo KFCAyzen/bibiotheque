@@ -1,0 +1,140 @@
+/* ==========================================================================
+   LES BILLETS
+   --------------------------------------------------------------------------
+   Une notification est un billet glissé sur le coin du bureau : même carton
+   que les fiches, même filet d'encre en marge que les mentions portées sur
+   une fiche. Rien de neuf dans le vocabulaire — c'est ce qui les fait
+   appartenir à l'écran plutôt que flotter au-dessus.
+   ========================================================================== */
+
+.pile {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 1080;               /* au-dessus du voile de confirmation (1050) */
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: min(26rem, calc(100vw - 2.5rem));
+  pointer-events: none;        /* la pile ne bloque pas le contenu dessous */
+}
+
+.billet {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 0.9rem 0.9rem;
+  background-color: var(--fiche);
+  border: 1px solid var(--trait);
+  border-left-width: 3px;
+  border-radius: var(--coupe);
+  box-shadow: 0 12px 32px -14px rgba(36, 31, 26, 0.55);
+  overflow: hidden;
+  pointer-events: auto;        /* le billet, lui, se ferme */
+  animation: billet-entre 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Le ton ne change que le filet et la couleur du titre : le corps du message
+   reste à l'encre courante, parce qu'un message du serveur se lit, il ne se
+   colore pas. */
+.billet-succes { border-left-color: var(--sauge); }
+.billet-refus  { border-left-color: var(--refus); }
+
+.billet-corps { flex: 1; min-width: 0; }
+
+.billet-titre {
+  margin: 0 0 0.25rem;
+  font-family: var(--machine);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.billet-succes .billet-titre { color: var(--sauge); }
+.billet-refus  .billet-titre { color: var(--refus); }
+
+.billet-message {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 0.89rem;
+  line-height: 1.45;
+  color: var(--encre);
+  overflow-wrap: anywhere;     /* un message serveur long ne déborde pas */
+}
+
+/* La ligne technique reste en retrait : elle lève une ambiguïté quand on la
+   cherche, elle ne prend jamais le pas sur la phrase du serveur. */
+.billet-detail {
+  margin: 0.35rem 0 0;
+  font-family: var(--machine);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--encre-pale);
+}
+
+.billet-fermer {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  line-height: 1;
+  font-size: 1.15rem;
+  color: var(--encre-pale);
+  background: none;
+  border: none;
+  border-radius: var(--coupe);
+  cursor: pointer;
+  transition: color 0.14s ease, background-color 0.14s ease;
+}
+
+.billet-fermer:hover {
+  color: var(--encre);
+  background-color: rgba(36, 31, 26, 0.07);
+}
+
+/* Le sablier : même filet que la jauge de validité du registre, même sens de
+   lecture — ce qui reste est ce qui n'est pas encore consommé. */
+.billet-sablier {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  transform-origin: left center;
+  background-color: var(--sauge);
+  opacity: 0.55;
+  animation-name: sablier-vide;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes billet-entre {
+  from { opacity: 0; transform: translateX(1.25rem); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes sablier-vide {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+/* Sur un écran étroit, la pile prend toute la largeur : un billet de 26 rem y
+   serait tronqué par le bord. */
+@media (max-width: 32rem) {
+  .pile {
+    right: 0.75rem;
+    left: 0.75rem;
+    bottom: 0.75rem;
+    width: auto;
+  }
+}
+
+/* Mouvement réduit : le billet apparaît sans glisser, et le sablier saute
+   directement à sa fin plutôt que de s'animer. Il reste fermable à la main,
+   et son minuteur, lui, continue de courir. */
+@media (prefers-reduced-motion: reduce) {
+  .billet { animation: none; }
+  .billet-sablier { animation: none; transform: scaleX(0); }
+}

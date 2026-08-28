@@ -1,0 +1,92 @@
+/* Le registre est posé sur une fiche, comme le formulaire : les deux colonnes
+   de l'écran sont deux objets du même tiroir. */
+:host {
+  display: block;
+  background-color: var(--fiche);
+  border: 1px solid var(--trait);
+  border-radius: var(--coupe);
+  box-shadow: 0 1px 0 rgba(36, 31, 26, 0.07);
+  padding: 1.15rem 1.25rem 1.25rem;
+}
+
+.bandeau-liste {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--trait);
+}
+
+.entete-triable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.14s ease;
+}
+
+.entete-triable:hover { color: var(--tampon); }
+
+/* Hauteur réservée : passer d'un état à l'autre ne doit pas faire sauter la
+   page sous le curseur. */
+.zone-etat {
+  min-height: 13rem;
+}
+
+.etat-centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 13rem;
+}
+
+/* Le numéro de fiche vit sous le titre, à la machine, en retrait. */
+.cote {
+  font-family: var(--machine);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--encre-pale);
+  margin-top: 0.15rem;
+}
+
+/* La colonne de validité tient deux informations empilées : garder une largeur
+   stable évite que la jauge ne fasse respirer le tableau à chaque tri. */
+.cellule-validite {
+  min-width: 9.5rem;
+}
+
+/* Les titres de l'énoncé sont longs — « L5 — Le Vieux Nègre et la Médaille ».
+   Sans largeur minimale, la colonne les casse sur quatre lignes ; avec trop de
+   largeur, les six colonnes ne tiennent plus dans la carte et « Annuler » sort
+   du cadre. Ces valeurs sont le point d'équilibre à 1440 px, mesuré à l'écran.
+   Le tableau reste dans un « table-responsive » : en dessous, il défile. */
+.table td.ouvrage,
+.table th:first-child {
+  min-width: 11.5rem;
+}
+
+.table td:nth-child(2),
+.table th:nth-child(2) {
+  min-width: 6.5rem;
+}
+
+/* Colonnes serrées : chaque demi-rem gagnée ici est une demi-rem rendue au
+   titre de l'ouvrage. */
+.table > :not(caption) > * > * {
+  padding-left: 0.6rem;
+  padding-right: 0.6rem;
+}
+
+/* Un tiroir vide se montre vide : un cadre au trait interrompu, pas un
+   bandeau coloré qui ferait croire à un incident. */
+.etat-vide {
+  margin-top: 1.25rem;
+  padding: 2.75rem 1.5rem;
+  border: 1px dashed var(--trait-fort);
+  border-radius: var(--coupe);
+  text-align: center;
+  color: var(--encre-pale);
+  font-size: 0.95rem;
+}

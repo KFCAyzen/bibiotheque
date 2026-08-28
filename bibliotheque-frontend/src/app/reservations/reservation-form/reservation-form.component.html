@@ -1,0 +1,96 @@
+<div class="carte-formulaire">
+  <h3 class="mb-0">Ouvrir une fiche</h3>
+  <p class="etiquette mb-3 mt-1">Nouvelle réservation</p>
+
+  <!-- Les listes déroulantes ne peuvent pas être remplies : on le dit ici et
+       non en notification, parce que ce message explique pourquoi les deux
+       champs sous lui sont vides et porte le moyen d'y remédier. -->
+  <div class="alert alert-danger" *ngIf="erreurReferences">
+    <p class="mb-2">{{ erreurReferences }}</p>
+    <p class="etiquette mb-2" *ngIf="detailReferences">{{ detailReferences }}</p>
+    <button type="button" class="btn btn-sm btn-outline-danger"
+            (click)="rechargerReferences.emit()">
+      Réessayer
+    </button>
+  </div>
+
+  <form (ngSubmit)="soumettre()" novalidate>
+
+    <div class="mb-3">
+      <label class="form-label" for="livre">Ouvrage</label>
+      <select id="livre"
+              name="livre"
+              class="form-select"
+              [(ngModel)]="livreId"
+              [disabled]="chargementReferences || creationEnCours">
+        <option [ngValue]="null" disabled>
+          {{ chargementReferences ? 'Chargement…' : 'Choisissez un ouvrage' }}
+        </option>
+        <!-- Le titre porte déjà un tiret cadratin (« L1 — Le Petit Prince ») :
+             le stock est séparé par un point médian, sinon la ligne compte
+             deux tirets et se lit mal dans une liste étroite. -->
+        <option *ngFor="let livre of livres" [ngValue]="livre.bookId">
+          {{ livre.bookName }} · {{ livre.noOfCopies }} ex.
+        </option>
+      </select>
+      <div class="form-text">
+        Un ouvrage encore en rayon s'emprunte, il ne se réserve pas : le serveur
+        le refusera par RG-01.
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="adherent">Adhérent</label>
+      <select id="adherent"
+              name="adherent"
+              class="form-select"
+              [(ngModel)]="adherentId"
+              (ngModelChange)="surChangementDAdherent()"
+              [disabled]="chargementReferences || creationEnCours">
+        <option [ngValue]="null" disabled>
+          {{ chargementReferences ? 'Chargement…' : 'Choisissez un adhérent' }}
+        </option>
+        <option *ngFor="let adherent of adherents" [ngValue]="adherent.userId">
+          {{ adherent.name }}
+        </option>
+      </select>
+    </div>
+
+    <!-- Le compteur n'a pas pu être lu : sans cette ligne, l'absence de jauge
+         se lirait « zéro réservation active », ce qui est faux. -->
+    <p class="quota-muet" *ngIf="compteurIndisponible">
+      Compteur de réservations actives indisponible. La création reste possible :
+      le serveur appliquera RG-03 lui-même.
+    </p>
+
+    <!-- Quota de l'adhérent (RG-03). Une jauge de trois crans plutôt qu'une
+         phrase : au guichet, la question est « lui en reste-t-il », et trois
+         crans y répondent sans être lus. -->
+    <div class="quota" *ngIf="reservationsActives !== null">
+      <div class="quota-crans" aria-hidden="true">
+        <span class="quota-cran"
+              *ngFor="let cran of crans; let i = index"
+              [class.pris]="i < reservationsActives"
+              [class.sature]="reservationsActives >= plafond"></span>
+      </div>
+      <p class="quota-texte mb-0" [class.sature]="reservationsActives >= plafond">
+        <span *ngIf="reservationsActives < plafond">
+          {{ reservationsActives }} réservation(s) active(s) sur {{ plafond }}.
+        </span>
+        <span *ngIf="reservationsActives >= plafond">
+          Quota atteint : {{ reservationsActives }} sur {{ plafond }}. Le serveur
+          refusera cette création (RG-03).
+        </span>
+      </p>
+    </div>
+
+    <button type="submit"
+            class="btn btn-primary w-100 mt-3"
+            [disabled]="!formulaireValide || creationEnCours">
+      <span class="spinner-border spinner-border-sm me-2" *ngIf="creationEnCours"></span>
+      {{ creationEnCours ? 'Enregistrement…' : 'Réserver' }}
+    </button>
+
+  </form>
+
+</div>

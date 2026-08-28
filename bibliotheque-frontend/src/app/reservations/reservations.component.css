@@ -1,0 +1,53 @@
+/* L'en-tête ne fait pas de mise en scène : un titre, une phrase qui dit la
+   règle du jeu, un filet. L'espace en dessous fait le reste. */
+.entete-page {
+  padding-bottom: 1.35rem;
+  margin-bottom: 1.6rem;
+  border-bottom: 1px solid var(--trait-fort);
+}
+
+.chapeau {
+  margin-top: 0.5rem;
+  max-width: 48ch;
+  font-size: 1.02rem;
+  color: var(--encre-douce);
+}
+
+/* --------------------------------------------------------------- la boîte
+   Bootstrap fournit la carte ; la mise en avant modale manque, et elle tient
+   en quelques lignes. Brancher le JavaScript de Bootstrap obligerait à charger
+   jQuery dans angular.json pour un unique dialogue. */
+
+.voile {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow-y: auto;
+  background-color: rgba(36, 31, 26, 0.55);
+  animation: voile-apparait 0.16s ease both;
+}
+
+.boite-confirmation {
+  width: 100%;
+  max-width: 31rem;
+  padding: 1.5rem;
+  background-color: var(--fiche);
+  border: 1px solid var(--trait-fort);
+  border-radius: var(--coupe);
+  box-shadow: 0 20px 56px -20px rgba(36, 31, 26, 0.5);
+  animation: boite-monte 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes voile-apparait {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes boite-monte {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
