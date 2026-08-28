@@ -1,34 +1,34 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Books } from '../_model/books';
+import { ApiService } from './api.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class BooksService {
 
-  private baseURL = "http://localhost:8080/admin/books";
+  private readonly basePath = '/admin/books';
 
-  constructor(private httpClient: HttpClient) { }
+  constructor(private api: ApiService) { }
 
   getBooksList(): Observable<Books[]> {
-    return this.httpClient.get<Books[]>(`${this.baseURL}`);
+    return this.api.get<Books[]>(this.basePath);
   }
 
   createBook(book: Books): Observable<Object> {
-    return this.httpClient.post(`${this.baseURL}`, book);
+    return this.api.post<Object>(this.basePath, book);
   }
 
   getBookById(bookId: number): Observable<Books> {
-    return this.httpClient.get<Books>(`${this.baseURL}/${bookId}`);
+    return this.api.get<Books>(`${this.basePath}/${bookId}`);
   }
 
   updateBook(bookId: number, book: Books): Observable<Object> {
-    return this.httpClient.put(`${this.baseURL}/${bookId}`, book);
+    return this.api.put<Object>(`${this.basePath}/${bookId}`, book);
   }
 
   deleteBook(bookId: number): Observable<Object> {
-    return this.httpClient.delete(`${this.baseURL}/${bookId}`);
+    return this.api.delete<Object>(`${this.basePath}/${bookId}`);
   }
 }

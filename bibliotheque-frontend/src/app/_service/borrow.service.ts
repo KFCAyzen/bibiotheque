@@ -1,34 +1,34 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Borrow } from '../_model/borrow';
+import { ApiService } from './api.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class BorrowService {
 
-  private baseURL = "http://localhost:8080/borrow";
+  private readonly basePath = '/borrow';
 
-  constructor(private httpClient: HttpClient) { }
+  constructor(private api: ApiService) { }
 
   getBorrowList(): Observable<Borrow[]> {
-    return this.httpClient.get<Borrow[]>(`${this.baseURL}`);
+    return this.api.get<Borrow[]>(this.basePath);
   }
 
   borrowBook(borrow: Borrow): Observable<Object> {
-    return this.httpClient.post(`${this.baseURL}`, borrow);
+    return this.api.post<Object>(this.basePath, borrow);
   }
 
   returnBook(borrow: Borrow): Observable<Object> {
-    return this.httpClient.put(`${this.baseURL}`, borrow);
+    return this.api.put<Object>(this.basePath, borrow);
   }
 
   getBooksBorrowedByUser(userId: number): Observable<Borrow[]> {
-    return this.httpClient.get<Borrow[]>(`${this.baseURL}/user/${userId}`);
+    return this.api.get<Borrow[]>(`${this.basePath}/user/${userId}`);
   }
 
   getBookBorrowHistory(bookId: number): Observable<Borrow[]> {
-    return this.httpClient.get<Borrow[]>(`${this.baseURL}/book/${bookId}`);
+    return this.api.get<Borrow[]>(`${this.basePath}/book/${bookId}`);
   }
 }

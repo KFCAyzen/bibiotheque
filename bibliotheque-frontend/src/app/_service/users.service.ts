@@ -1,8 +1,8 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { NgForm } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { Users } from '../_model/users';
+import { ApiService } from './api.service';
 import { UserAuthService } from './user-auth.service';
 
 @Injectable({
@@ -10,19 +10,16 @@ import { UserAuthService } from './user-auth.service';
 })
 export class UsersService {
 
-  private baseURL = "http://localhost:8080/admin/users";
-  requestHeader = new HttpHeaders(
-    { 'No-Auth': 'True' }
-  );
+  private readonly basePath = '/admin/users';
 
   constructor(
-    private httpClient: HttpClient,
+    private api: ApiService,
     private userAuthService: UserAuthService
   ) { }
 
   public login(loginData: NgForm) {
-    return this.httpClient.post("http://localhost:8080/authenticate", loginData, {
-      headers: this.requestHeader,
+    return this.api.post('/authenticate', loginData, {
+      headers: this.api.noAuthHeaders,
     });
   }
 
@@ -47,19 +44,19 @@ export class UsersService {
   }
 
   getUsersList(): Observable<Users[]> {
-    return this.httpClient.get<Users[]>(`${this.baseURL}`);
+    return this.api.get<Users[]>(this.basePath);
   }
 
   createUser(user: Users): Observable<Object> {
-    return this.httpClient.post(`${this.baseURL}`, user);
+    return this.api.post<Object>(this.basePath, user);
   }
 
   getUserById(userId: number): Observable<Users> {
-    return this.httpClient.get<Users>(`${this.baseURL}/${userId}`);
+    return this.api.get<Users>(`${this.basePath}/${userId}`);
   }
 
   updateUser(userId: number, user: Users): Observable<Object> {
-    return this.httpClient.put(`${this.baseURL}/${userId}`, user);
+    return this.api.put<Object>(`${this.basePath}/${userId}`, user);
   }
 
 }
