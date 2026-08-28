@@ -1,4 +1,19 @@
+/* La mention « Hey <nom> » était poussée à droite par un margin-left: 1000px.
+   Sur un écran de 1440 px cela faisait déborder la barre de 276 px et laissait
+   une bande noire à droite de toutes les pages. Un espace auto fait le même
+   travail sans jamais dépasser. */
 .right-text {
-    margin-left: 1000px;
-    font-size: 17px;
+  margin-left: auto;
+  font-size: 17px;
+}
+
+/* Le nom de la personne connectée est une donnée relevée, pas un titre :
+   il passe à la machine, en discret, avant le bouton de sortie. */
+.right-text .nav-link.disabled strong {
+  font-weight: 400;
+}
+
+/* La façade du meuble tient sur une seule ligne jusqu'au repli mobile. */
+.navbar-nav {
+  align-items: center;
 }

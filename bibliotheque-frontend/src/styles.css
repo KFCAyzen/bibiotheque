@@ -1,2 +1,501 @@
-/* You can add global styles to this file, and also import other style files */
-@import "~bootstrap/dist/css/bootstrap.min.css"
+@import "~bootstrap/dist/css/bootstrap.min.css";
+
+/* ==========================================================================
+   BANQUE DE PRÊT — système visuel
+   --------------------------------------------------------------------------
+   Le sujet donne la direction : un catalogue de bibliothèque. Avant
+   l'informatique, cette application était un meuble à fiches. On lui reprend
+   ses matériaux plutôt que de repartir d'un thème d'administration :
+
+     le meuble      chêne teinté, presque noir, chaud    --encre
+     le tiroir      carton bristol manille               --bristol
+     la fiche       même carton, une nuance plus clair   --fiche
+     le tampon      encre violette à l'aniline           --tampon
+     le refus       encre rouge du tampon « REFUSÉ »     --refus
+     le visa        vert sourd des mentions portées      --sauge
+
+   Rien n'est décoratif ici : le violet ne sert qu'à ce qui est porté sur la
+   fiche (statut, action principale), le rouge qu'à ce que le serveur refuse.
+   ========================================================================== */
+
+:root {
+  --encre:        #241f1a;
+  --encre-douce:  #4b4139;
+  --encre-pale:   #6f6156;
+
+  --bristol:      #e4d9be;
+  --fiche:        #f0e8d4;
+  --fiche-creuse: #d8cbab;
+
+  --tampon:       #5b3e8e;
+  --tampon-clair: #a98cd9;
+  --refus:        #a8321f;
+  --sauge:        #43614b;
+
+  --trait:        rgba(36, 31, 26, 0.20);
+  --trait-fort:   rgba(36, 31, 26, 0.42);
+
+  --serif:   "Young Serif", Georgia, "Times New Roman", serif;
+  --sans:    "Archivo", "Segoe UI", system-ui, sans-serif;
+  --machine: "Courier Prime", "Courier New", ui-monospace, monospace;
+
+  /* Le carton se coupe, il ne s'arrondit pas : 2px, la trace du massicot. */
+  --coupe: 2px;
+}
+
+/* --------------------------------------------------------------- fondations */
+
+body {
+  margin: 0;
+  background-color: var(--bristol);
+  color: var(--encre);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--serif);
+  font-weight: 400;
+  color: var(--encre);
+  letter-spacing: -0.01em;
+  line-height: 1.12;
+}
+
+h1 { font-size: clamp(2.1rem, 4.2vw, 3.1rem); }
+h2 { font-size: clamp(1.7rem, 3vw, 2.3rem); }
+h3 { font-size: 1.3rem; }
+h4, h5 { font-size: 1.08rem; }
+
+a { color: var(--tampon); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { color: var(--encre); }
+
+/* Tout ce qui est relevé — cote, date, statut, compte — passe à la machine.
+   C'est la ligne de partage du système : le rédigé en Archivo, le relevé en
+   Courier. */
+.machine,
+code, kbd, samp {
+  font-family: var(--machine);
+  font-size: 0.86em;
+  letter-spacing: 0.02em;
+}
+
+/* Étiquette de tiroir : petite capitale espacée, jamais décorative — elle ne
+   sert qu'à nommer une zone qui contient réellement autre chose. */
+.etiquette {
+  font-family: var(--machine);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--encre-pale);
+}
+
+/* ------------------------------------------------------------------ le meuble
+   La barre de navigation est la façade du meuble : chêne sombre, pleine
+   largeur, posée au-dessus du tiroir ouvert. */
+
+.navbar.bg-dark {
+  background-color: var(--encre) !important;
+  border-bottom: 3px solid rgba(0, 0, 0, 0.45);
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+}
+
+.navbar .navbar-brand {
+  font-family: var(--serif);
+  font-size: 1.22rem;
+  letter-spacing: -0.01em;
+  color: var(--bristol) !important;
+}
+
+.navbar .nav-link {
+  font-family: var(--sans);
+  font-size: 0.93rem;
+  font-weight: 500;
+  color: rgba(228, 217, 190, 0.72) !important;
+  padding: 0.35rem 0.85rem;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.navbar .nav-link:hover { color: var(--bristol) !important; }
+
+/* L'onglet courant est tiré : trait d'encre violette sous le libellé. */
+.navbar .nav-link.active {
+  color: #ffffff !important;
+  border-bottom-color: var(--tampon-clair);
+}
+
+.navbar .nav-link.disabled {
+  font-family: var(--machine);
+  font-size: 0.8rem;
+  color: rgba(228, 217, 190, 0.55) !important;
+}
+
+/* ------------------------------------------------------------------ le tiroir */
+
+.container {
+  max-width: 1180px;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+/* --------------------------------------------------------------- les fiches */
+
+.card {
+  background-color: var(--fiche);
+  border: 1px solid var(--trait);
+  border-radius: var(--coupe);
+  box-shadow: 0 1px 0 rgba(36, 31, 26, 0.07);
+  color: var(--encre);
+}
+
+.card-header {
+  background-color: transparent;
+  border-bottom: 1px solid var(--trait);
+  padding: 0.9rem 1.15rem;
+}
+
+.card-header h3,
+.card-header .h5 {
+  font-family: var(--serif);
+  font-size: 1.12rem;
+  margin: 0;
+}
+
+.card-body { padding: 1.15rem; }
+
+/* ------------------------------------------------------------- les registres
+   Un registre de bibliothèque n'a pas de zébrures ni de coins ronds : il a des
+   filets. On enlève le vert Bootstrap et on rend les colonnes lisibles. */
+
+/* Les gabarits existants portent « table-success table-striped ». Ces deux
+   classes redéfinissent les variables de Bootstrap à la même spécificité que
+   « .table » : les neutraliser demande de les nommer, sinon le vert et la
+   zébrure repassent devant. */
+.table,
+.table.table-success,
+.table.table-striped,
+.table.table-hover {
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: transparent;
+  --bs-table-active-bg: transparent;
+  --bs-table-hover-bg: transparent;
+  --bs-table-color: var(--encre);
+  --bs-table-striped-color: var(--encre);
+  --bs-table-hover-color: var(--encre);
+  --bs-table-border-color: var(--trait);
+  border-color: var(--trait);
+  margin-bottom: 0;
+}
+
+.table > :not(caption) > * > * {
+  background-color: transparent;
+  box-shadow: none;
+  padding: 0.78rem 0.9rem;
+  border-bottom-color: var(--trait);
+  vertical-align: middle;
+  color: var(--encre);
+}
+
+.table thead th {
+  font-family: var(--machine);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--encre-pale);
+  border-bottom: 1px solid var(--trait-fort) !important;
+  white-space: nowrap;
+}
+
+.table tbody tr { transition: background-color 0.12s ease; }
+.table tbody tr:hover { background-color: rgba(91, 62, 142, 0.055); }
+.table tbody tr:last-child > * { border-bottom-color: transparent; }
+
+/* Le titre d'ouvrage est le sujet de la ligne : il porte le sérif. */
+.table td.ouvrage {
+  font-family: var(--serif);
+  font-size: 1.02rem;
+  line-height: 1.25;
+}
+
+/* Les colonnes de relevé (identifiants, dates, nombres) passent à la machine. */
+.table td.releve,
+.table td .releve {
+  font-family: var(--machine);
+  font-size: 0.83rem;
+  color: var(--encre-douce);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- les commandes */
+
+.btn {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: 0.005em;
+  border-radius: var(--coupe);
+  border-width: 1px;
+  padding: 0.48rem 1.05rem;
+  transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.btn-primary {
+  background-color: var(--tampon);
+  border-color: var(--tampon);
+  color: var(--fiche);
+}
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: #4a3175;
+  border-color: #4a3175;
+  color: #ffffff;
+}
+
+/* Une action destructrice ne crie pas tant qu'on ne l'a pas survolée. */
+.btn-danger {
+  background-color: transparent;
+  border-color: var(--refus);
+  color: var(--refus);
+}
+.btn-danger:hover,
+.btn-danger:focus {
+  background-color: var(--refus);
+  border-color: var(--refus);
+  color: var(--fiche);
+}
+
+.btn-success {
+  background-color: var(--sauge);
+  border-color: var(--sauge);
+  color: var(--fiche);
+}
+.btn-success:hover,
+.btn-success:focus {
+  background-color: #37503e;
+  border-color: #37503e;
+  color: #ffffff;
+}
+
+.btn-info,
+.btn-secondary {
+  background-color: transparent;
+  border-color: var(--trait-fort);
+  color: var(--encre-douce);
+}
+.btn-info:hover,
+.btn-secondary:hover,
+.btn-info:focus,
+.btn-secondary:focus {
+  background-color: var(--encre);
+  border-color: var(--encre);
+  color: var(--bristol);
+}
+
+.btn-outline-danger {
+  border-color: var(--refus);
+  color: var(--refus);
+  background-color: transparent;
+}
+.btn-outline-danger:hover {
+  background-color: var(--refus);
+  color: var(--fiche);
+}
+
+.btn-sm { font-size: 0.82rem; padding: 0.3rem 0.72rem; }
+
+/* Bootstrap déclare ses états désactivés en « .btn-primary:disabled », plus
+   spécifique que « .btn-primary » : sans ces règles, un bouton grisé
+   redeviendrait bleu Bootstrap au milieu d'un écran à l'encre violette. */
+.btn-primary:disabled, .btn-primary.disabled,
+.btn-success:disabled, .btn-success.disabled {
+  background-color: var(--tampon);
+  border-color: var(--tampon);
+  color: var(--fiche);
+}
+
+.btn-success:disabled, .btn-success.disabled {
+  background-color: var(--sauge);
+  border-color: var(--sauge);
+}
+
+.btn-danger:disabled, .btn-danger.disabled,
+.btn-secondary:disabled, .btn-secondary.disabled,
+.btn-info:disabled, .btn-info.disabled {
+  background-color: transparent;
+  border-color: var(--trait-fort);
+  color: var(--encre-douce);
+}
+
+.btn:disabled, .btn.disabled { opacity: 0.42; }
+
+/* Les gabarits d'origine espacent leurs boutons d'action par un style en
+   ligne. Empêcher le retour à la ligne évite qu'« Delete » ne tombe sous
+   « View » dès que les boutons respirent un peu plus. */
+td .btn + .btn { margin-left: 0.4rem !important; }
+td:last-child { white-space: nowrap; }
+
+/* --------------------------------------------------------------- la saisie */
+
+.form-label {
+  font-family: var(--machine);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--encre-pale);
+  margin-bottom: 0.35rem;
+}
+
+.form-control,
+.form-select {
+  background-color: #fbf7ec;
+  border: 1px solid var(--trait-fort);
+  border-radius: var(--coupe);
+  color: var(--encre);
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  padding: 0.5rem 0.7rem;
+}
+
+/* Réserver la place du chevron : sans cela, un libellé long passe dessous
+   dans une colonne étroite. */
+.form-select {
+  padding-right: 2.4rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: #ffffff;
+  border-color: var(--tampon);
+  box-shadow: 0 0 0 3px rgba(91, 62, 142, 0.16);
+  color: var(--encre);
+}
+
+.form-control::placeholder { color: var(--encre-pale); }
+
+.form-text {
+  font-size: 0.83rem;
+  color: var(--encre-pale);
+  line-height: 1.4;
+}
+
+/* ------------------------------------------------------------ les mentions
+   Un avis porté sur une fiche, c'est un filet en marge et rien de plus : pas
+   de pastille colorée pleine. */
+
+.alert {
+  border: 1px solid var(--trait);
+  border-left-width: 3px;
+  border-radius: var(--coupe);
+  padding: 0.75rem 1rem;
+  font-size: 0.92rem;
+  color: var(--encre);
+}
+
+.alert-heading { font-family: var(--serif); font-size: 1.05rem; }
+
+.alert-danger    { background-color: rgba(168, 50, 31, 0.09);  border-left-color: var(--refus);      color: #7d2416; }
+.alert-success   { background-color: rgba(67, 97, 75, 0.10);   border-left-color: var(--sauge);      color: #33493a; }
+.alert-info      { background-color: rgba(91, 62, 142, 0.08);  border-left-color: var(--tampon);     color: #47316f; }
+.alert-warning   { background-color: rgba(176, 122, 20, 0.11); border-left-color: #b07a14;           color: #74500d; }
+.alert-secondary { background-color: rgba(36, 31, 26, 0.05);   border-left-color: var(--trait-fort); color: var(--encre-douce); }
+
+.text-muted { color: var(--encre-pale) !important; }
+.text-dark  { color: var(--encre) !important; }
+
+/* ============================================================== LE TAMPON
+   L'élément signature. Le statut d'une réservation est un tampon dans le
+   monde du sujet : on le rend comme tel — encre violette, double filet,
+   posé de travers parce qu'aucune main ne tamponne droit.
+
+   C'est le seul endroit où l'on hausse la voix ; tout le reste du système
+   reste au filet et à la capitale espacée. */
+
+.tampon {
+  display: inline-block;
+  font-family: var(--machine);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 0.22rem 0.42rem;
+  border: 1px solid currentColor;
+  border-radius: 1px;
+  box-shadow: inset 0 0 0 1px currentColor;
+  background-color: transparent;
+  white-space: nowrap;
+  opacity: 0.92;
+  transform: rotate(-2.4deg);
+  transform-origin: center;
+}
+
+/* Aucune main ne tamponne deux fois pareil : l'angle varie d'une ligne à
+   l'autre, sans jamais dépasser ce qu'un poignet fait vraiment. */
+tbody tr:nth-child(3n+1) .tampon { transform: rotate(-2.4deg); }
+tbody tr:nth-child(3n+2) .tampon { transform: rotate(1.6deg); }
+tbody tr:nth-child(3n)   .tampon { transform: rotate(-0.9deg); }
+
+.tampon-attente    { color: var(--tampon); }
+.tampon-disponible { color: var(--sauge); }
+.tampon-refus      { color: var(--refus); }
+/* Un statut éteint n'est plus de l'encre fraîche : il a passé. */
+.tampon-passe      { color: var(--encre-pale); opacity: 0.6; }
+
+/* ===================================================== LA DURÉE DE VALIDITÉ
+   Deuxième chose vraie que porte une fiche : une réservation n'est pas un
+   état, c'est une créance qui s'épuise. Sept jours, sept crans. Les crans
+   passés sont pleins, ceux qui restent sont vides. Le tableau dit « expire le
+   04/09 » ; la jauge dit « il reste deux jours », qui est la question que se
+   pose réellement la personne au guichet. */
+
+.jauge {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 0.3rem;
+}
+
+.jauge-cran {
+  width: 10px;
+  height: 5px;
+  border: 1px solid var(--encre-pale);
+  border-radius: 1px;
+  background-color: rgba(36, 31, 26, 0.06);
+}
+
+.jauge-cran.consomme { background-color: var(--encre-douce); border-color: var(--encre-douce); }
+.jauge-cran.dernier  { background-color: var(--refus); border-color: var(--refus); }
+
+.jauge-reste {
+  font-family: var(--machine);
+  font-size: 0.7rem;
+  color: var(--encre-pale);
+  margin-left: 0.4rem;
+  white-space: nowrap;
+}
+
+.jauge-reste.urgent { color: var(--refus); font-weight: 700; }
+
+/* --------------------------------------------------------------- le plancher
+   Rien de tout cela ne compte si la page ne se laisse pas parcourir au clavier
+   ou si elle impose son mouvement. */
+
+:focus-visible {
+  outline: 2px solid var(--tampon);
+  outline-offset: 2px;
+}
+
+.spinner-border { color: var(--tampon) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
