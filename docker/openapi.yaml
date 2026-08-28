@@ -73,8 +73,8 @@ components:
           type: integer
           readOnly: true
           description: >
-            Attribué par hibernate_sequence, et non par un auto_increment :
-            l'entité déclare GenerationType.AUTO.
+            Attribué par la séquence hibernate_sequence, et non par la colonne
+            elle-même : l'entité déclare GenerationType.AUTO.
           example: 1
         bookName:
           type: string
@@ -134,8 +134,9 @@ components:
           type: integer
           readOnly: true
           description: >
-            Auto_increment, contrairement à bookId et userId. Le jeu de données
-            de test démarre ce compteur à 100.
+            Colonne serial, alimentée par la séquence borrow_borrow_id_seq,
+            contrairement à bookId et userId qui viennent de hibernate_sequence.
+            Le jeu de données de test démarre ce compteur à 100.
           example: 100
         bookId:
           type: integer
@@ -220,8 +221,9 @@ components:
           type: integer
           readOnly: true
           description: >
-            Auto_increment MySQL, distinct de hibernate_sequence qui numérote
-            les livres et les utilisateurs. Le jeu de données de test démarre
+            Colonne serial PostgreSQL, alimentée par la séquence
+            reservation_reservation_id_seq, distincte de hibernate_sequence qui
+            numérote les livres et les utilisateurs. Le jeu de test démarre
             ce compteur à 100, pour qu'un identifiant de réservation ne puisse
             pas être confondu avec un livreId ou un adherentId.
           example: 100

@@ -79,7 +79,7 @@ Ce qu'il faut faire tourner ensemble :
 
 | Service | Rôle | Port |
 |---|---|---|
-| `db` | MySQL, schéma `bibliotheque` | 3306 |
+| `db` | PostgreSQL, schéma `bibliotheque` | 5432 |
 | `backend` | l'API Spring Boot | 8080 |
 | `frontend` | l'interface Angular | 4200 |
 
@@ -90,14 +90,14 @@ Trois difficultés à anticiper, dans cet ordre :
    possibles : construire l'image avec un JDK plus ancien, ou moderniser le
    projet. Les deux sont défendables — sachez dire laquelle vous avez choisie et
    pourquoi.
-2. **Le backend démarre avant que MySQL soit prêt** et meurt sur une erreur de
+2. **Le backend démarre avant que la base soit prête** et meurt sur une erreur de
    connexion. `depends_on` seul ne suffit pas : il attend le démarrage du
    conteneur, pas la disponibilité de la base.
 3. **Le frontend appelle `http://localhost:8080` en dur.** Réfléchissez à qui
    exécute ce code : ce n'est pas le conteneur, c'est le navigateur de
    l'utilisateur. Cela change complètement ce que « localhost » désigne.
 
-Repli si vous bloquez : lancez les trois à la main (MySQL local,
+Repli si vous bloquez : lancez les trois à la main (PostgreSQL local,
 `mvnw spring-boot:run`, `npm start`) pour ne pas rester à l'arrêt, et revenez à
 Docker ensuite. Mais notez que le repli n'est pas le rendu attendu.
 

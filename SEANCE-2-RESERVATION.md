@@ -173,8 +173,14 @@ indisponibles, puisque RG-01 refuse de réserver ce qui est en rayon.
 docker compose up -d
 docker cp docker/fixture-reservation.sql bibliotheque-db:/tmp/fixture.sql
 docker exec bibliotheque-db sh -c \
-  'mysql --default-character-set=utf8mb4 -uroot -p"$MYSQL_ROOT_PASSWORD" bibliotheque < /tmp/fixture.sql'
+  'PGCLIENTENCODING=UTF8 psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /tmp/fixture.sql'
 ```
+
+`ON_ERROR_STOP=1` n'est pas décoratif : sans lui, `psql` poursuit après une
+erreur et sort en 0 — une fixture à moitié appliquée passerait pour un succès.
+
+> Sous Git Bash / MSYS, préfixez la commande par `MSYS_NO_PATHCONV=1`, sinon
+> `/tmp/fixture.sql` est réécrit en chemin Windows avant d'atteindre le conteneur.
 
 Rejouable autant de fois que voulu : le script vide les tables avant d'écrire.
 
@@ -190,10 +196,12 @@ Mot de passe `admin123` pour tous. Le compte `admin` est conservé : sans lui, p
 de `POST /authenticate`, donc plus de jeton, donc aucune route utilisable.
 
 **Les réservations créées sont numérotées à partir de 100.** `Reservation`
-déclare `GenerationType.IDENTITY` : sa clé vient de l'`AUTO_INCREMENT` de MySQL,
+déclare `GenerationType.IDENTITY` : sous PostgreSQL, Hibernate lui donne une
+colonne `serial`, donc sa propre séquence `reservation_reservation_id_seq` —
 un compteur distinct de la `hibernate_sequence` qui numérote les livres et les
 utilisateurs, et que vider la table ne remet pas à zéro. Le script le force donc
-à 100 — ainsi un identifiant de réservation ne peut jamais être confondu avec un
+à 100 par un `ALTER SEQUENCE … RESTART WITH 100` — ainsi un identifiant de
+réservation ne peut jamais être confondu avec un
 `livreId` (1 à 5) ou un `adherentId` (1 à 4) pendant les tests.
 
 Les libellés portent leur référence — `L2 — L'Étranger`, `A2 Quota à saturer` —
@@ -215,8 +223,8 @@ Ce que le jeu de données permet de démontrer, dans l'ordre :
 | RG-05 / RG-06 | annuler une réservation d'A1, puis la réannuler | 200 puis 409 |
 
 Les identifiants réutilisent ceux de `docker/seed.sql` : le service `seed`, qui
-rejoue ses `INSERT IGNORE` à chaque `docker compose up`, les saute au lieu de
-réintroduire l'ancien contenu par-dessus.
+rejoue ses insertions `ON CONFLICT DO NOTHING` à chaque `docker compose up`, les
+saute au lieu de réintroduire l'ancien contenu par-dessus.
 
 ---
 
@@ -230,7 +238,7 @@ Compilation et tests unitaires, dans l'image de build du projet :
 ```
 
 Puis 31 assertions passées de bout en bout sur la pile `docker compose`, contre
-le backend réel et sa base MySQL :
+le backend réel et sa base PostgreSQL :
 
 - 400 sur `livreId` manquant, sur `adherentId` manquant, sur corps absent
 - 404 sur livre inconnu, adhérent inconnu, réservation inconnue (GET, PATCH, DELETE)
@@ -246,13 +254,23 @@ le backend réel et sa base MySQL :
 - 401 sans jeton
 - prévol `OPTIONS` autorisant `PATCH`
 
-La table créée par Hibernate au démarrage :
+La table créée par Hibernate au démarrage, relevée avec `\d reservation` :
 
 ```
-reservation_id    int         NO   PRI   auto_increment
-date_expiration   datetime    NO
-date_reservation  datetime    NO
-statut            varchar(20) NO
-user_id           int         NO   MUL
-book_id           int         NO   MUL
+      Column      |            Type             | Nullable |                    Default
+------------------+-----------------------------+----------+---------------------------------------------------
+ reservation_id   | integer                     | not null | nextval('reservation_reservation_id_seq'::regclass)
+ date_expiration  | timestamp without time zone | not null |
+ date_reservation | timestamp without time zone | not null |
+ statut           | character varying(20)       | not null |
+ user_id          | integer                     | not null |
+ book_id          | integer                     | not null |
+Indexes:
+    "reservation_pkey" PRIMARY KEY, btree (reservation_id)
+Foreign-key constraints:
+    "fkrea93581tgkq61mdl13hehami" FOREIGN KEY (user_id) REFERENCES users(user_id)
+    "fks25sh1gv4uidcd1c1qjux3af2" FOREIGN KEY (book_id) REFERENCES books(book_id)
 ```
+
+Le `nextval(...)` de la première ligne est la trace du `GenerationType.IDENTITY` :
+PostgreSQL n'a pas d'`AUTO_INCREMENT`, c'est une séquence dédiée qui joue ce rôle.

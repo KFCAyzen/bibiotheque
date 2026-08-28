@@ -6,13 +6,13 @@
 
 [![Spring Boot](https://img.shields.io/badge/Spring-6DB33F?style=for-the-badge&logo=spring&logoColor=white)]()
 [![Angular](https://img.shields.io/badge/Angular-DD0031?style=for-the-badge&logo=angular&logoColor=white)]()
-[![MySQL](https://img.shields.io/badge/MySQL-00000F?style=for-the-badge&logo=mysql&logoColor=white)]()
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)]()
 [![Hibernate](https://img.shields.io/badge/Hibernate-59666C?style=for-the-badge&logo=Hibernate&logoColor=white)]()
 [![Maven](https://img.shields.io/badge/apache_maven-C71A36?style=for-the-badge&logo=apachemaven&logoColor=white)]()
 [![Bootstrap](https://img.shields.io/badge/Bootstrap-563D7C?style=for-the-badge&logo=bootstrap&logoColor=white)]()
 
 Application full-stack de gestion de bibliothèque : **Spring Boot** (API REST) +
-**Angular** (interface) + **MySQL** (persistance).
+**Angular** (interface) + **PostgreSQL** (persistance).
 
 * Deux profils : **Admin** (CRUD livres et utilisateurs) et **User** (emprunter / rendre).
 * Authentification par **JWT**.
@@ -72,7 +72,7 @@ c'est d'abord savoir diagnostiquer pourquoi il refuse de démarrer.
 | **Le backend ne compile pas sur un JDK 17+** | `pom.xml` cible Spring Boot 2.4.5 et Java 1.8. La version de Lombok qu'il embarque ne connaît pas le compilateur des JDK récents. Sur JDK 21, le build s'arrête sur `java.lang.NoSuchFieldError: Class com.sun.tools.javac.tree.JCTree$JCImport does not have member field 'com.sun.tools.javac.tree.JCTree qualid'`. |
 | **Le frontend est en Angular 14** | `npx ng version` affiche `Node: 22.x (Unsupported)`. Le build passe malgré tout, mais vous êtes hors du support officiel. |
 | **Aucun fichier Docker** | Pas de `Dockerfile`, pas de `docker-compose.yml`. La consigne « lancer avec `docker compose up` » suppose que vous les écriviez. |
-| **La base doit exister à la main** | `application.properties` pointe sur `jdbc:mysql://localhost:3306/bibliotheque` avec `root` / `mysql`. Le schéma `bibliotheque` n'est créé par personne. |
+| **La base doit exister à la main** | `application.properties` — que l'épreuve interdit de modifier — pointe toujours sur `jdbc:mysql://localhost:3306/bibliotheque` avec `root` / `mysql`, et fige le dialecte `MySQL5InnoDBDialect`. La stack tourne pourtant sur PostgreSQL : les quatre valeurs sont surchargées par variables d'environnement dans `docker-compose.yml`. Hors Docker, le schéma `bibliotheque` n'est créé par personne. |
 | **Aucun compte de départ** | `POST /admin/users` est protégé : impossible de créer le premier administrateur via l'API. Voir la [section 5](#5-créer-le-premier-compte). |
 | **L'URL de l'API est en dur** | `http://localhost:8080` est écrit dans les trois services Angular, pas dans `environment.ts`. |
 
@@ -156,17 +156,35 @@ Côté frontend, un dossier = un écran, et tout ce qui parle au réseau vit dan
 
 ### 4.1 La base de données
 
-Le backend ne crée pas le schéma, seulement les tables. Il faut donc :
+La persistance est assurée par **PostgreSQL**. Avec `docker compose up`, vous
+n'avez rien à faire : le service `db` crée le schéma `bibliotheque` à son premier
+démarrage (`POSTGRES_DB`) et le service `seed` y écrit le jeu de données initial
+— y compris le compte `admin`, ce qui rend la [section 5](#5-créer-le-premier-compte)
+inutile.
+
+Pour un lancement à la main, en revanche, le backend ne crée pas le schéma,
+seulement les tables. Il faut donc :
 
 ```sql
 CREATE DATABASE bibliotheque;
 ```
 
-Les identifiants attendus sont dans
-[`application.properties`](bibliotheque-backend/src/main/resources/application.properties) :
-utilisateur `root`, mot de passe `mysql`, port `3306`. Adaptez le fichier à
-votre installation **ou** votre installation au fichier — mais sachez lequel
-des deux vous avez fait.
+Attention au piège :
+[`application.properties`](bibliotheque-backend/src/main/resources/application.properties)
+n'a **pas** suivi la migration — l'épreuve interdit d'y toucher. Il annonce encore
+`jdbc:mysql://localhost:3306/bibliotheque`, `root` / `mysql`, et le dialecte
+`MySQL5InnoDBDialect`. Ce sont quatre variables d'environnement qui le
+corrigent au lancement :
+
+```bash
+export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/bibliotheque
+export SPRING_DATASOURCE_USERNAME=postgres
+export SPRING_DATASOURCE_PASSWORD=postgres
+export SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQL95Dialect
+```
+
+La dernière est celle qu'on oublie. Sans elle, Hibernate génère du DDL MySQL
+contre un serveur PostgreSQL et le démarrage échoue dès la création du schéma.
 
 ### 4.2 Le backend
 
@@ -176,13 +194,20 @@ cd bibliotheque-backend
 ```
 
 Au démarrage, `spring.jpa.hibernate.ddl-auto=update` demande à Hibernate de
-créer les tables manquantes. Vérifiez-le tout de suite :
+créer les tables manquantes. Vérifiez-le tout de suite, avec `psql` :
 
-```sql
-USE bibliotheque;
-SHOW TABLES;
-DESCRIBE books;
+```bash
+psql -U postgres -d bibliotheque
 ```
+
+```
+\dt          -- les tables
+\ds          -- les séquences : hibernate_sequence doit y figurer
+\d books     -- le détail d'une table
+```
+
+> Sur la stack Docker, sans installer de client :
+> `docker compose exec db psql -U postgres -d bibliotheque`
 
 > Si Maven s'arrête sur `NoSuchFieldError ... JCTree$JCImport`, vous compilez
 > avec un JDK trop récent pour ce projet.
@@ -214,16 +239,12 @@ déclare un `BCryptPasswordEncoder`, il n'acceptera jamais un mot de passe en
 clair. Le hachage ci-dessous correspond à `admin123`.
 
 ```sql
-USE bibliotheque;
-
 -- 1. Regardez d'abord ce qu'Hibernate a réellement créé.
 --    Les noms ci-dessous suivent la convention Spring Boot
 --    (camelCase -> snake_case), mais vérifiez-les, ne les supposez pas.
-SHOW TABLES;
-DESCRIBE users;
-DESCRIBE role;
+--    \dt puis \d users et \d role, dans psql.
 
--- 2. Puis insérez, en adaptant aux colonnes que DESCRIBE vous a montrées.
+-- 2. Puis insérez, en adaptant aux colonnes que \d vous a montrées.
 INSERT INTO role (role_name) VALUES ('Admin'), ('User');
 
 INSERT INTO users (user_id, username, name, password)
@@ -233,10 +254,15 @@ VALUES (1, 'admin', 'Administrateur',
 INSERT INTO user_role (user_id, role_id)
 VALUES (1, (SELECT role_id FROM role WHERE role_name = 'Admin'));
 
--- 3. Si une table hibernate_sequence existe, avancez son compteur au-delà
---    des identifiants que vous venez de poser à la main, sinon la prochaine
---    création depuis l'application entrera en collision.
-UPDATE hibernate_sequence SET next_val = 100 WHERE next_val < 100;
+-- 3. Avancez le compteur de hibernate_sequence au-delà des identifiants que
+--    vous venez de poser à la main, sinon la prochaine création depuis
+--    l'application entrera en collision.
+--
+--    Sous PostgreSQL, hibernate_sequence est une vraie SEQUENCE et non une
+--    table à colonne next_val : c'est setval() qui la déplace, et non un
+--    UPDATE. Le troisième argument à false signifie « le prochain nextval()
+--    rendra exactement 100 ».
+SELECT setval('hibernate_sequence', 100, false);
 ```
 
 Connexion : **admin / admin123**.
@@ -277,7 +303,7 @@ tableau passivement.
 | 9 | Backend | [`BooksController.java`](bibliotheque-backend/src/main/java/com/ibizabroker/bibliotheque/controller/BooksController.java) | `@PostMapping("/books")` reçoit le JSON, `@RequestBody` le transforme en objet `Books`. `@PreAuthorize("hasRole('Admin')")` refuse si le rôle ne colle pas → 403. |
 | 10 | Backend | [`BooksRepository.java`](bibliotheque-backend/src/main/java/com/ibizabroker/bibliotheque/dao/BooksRepository.java) | `save(book)`. L'interface est vide : Spring Data en génère l'implémentation au démarrage. |
 | 11 | Backend | [`Books.java`](bibliotheque-backend/src/main/java/com/ibizabroker/bibliotheque/entity/Books.java) | `@Entity` / `@Table(name = "Books")` : c'est cette classe qui dit à Hibernate quelle table et quelles colonnes viser. |
-| 12 | Base | MySQL | Hibernate émet l'`INSERT`. `spring.jpa.show-sql=true` l'affiche dans la console : lisez-le, c'est la preuve que le trajet est complet. |
+| 12 | Base | PostgreSQL | Hibernate émet l'`INSERT`. `spring.jpa.show-sql=true` l'affiche dans la console : lisez-le, c'est la preuve que le trajet est complet. |
 | 13 | Retour | — | L'objet sauvegardé (avec son `bookId`) repart en JSON, le `subscribe()` de l'étape 2 se déclenche et route vers `/books`. |
 
 Le même trajet vaut pour la lecture, la modification et la suppression : seuls
