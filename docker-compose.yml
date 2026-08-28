@@ -1,32 +1,41 @@
 services:
 
   # ---------------------------------------------------------------------------
-  # Base de données MySQL
-  # Les valeurs par défaut reprennent exactement celles attendues par
-  # bibliotheque-backend/src/main/resources/application.properties
-  # (root / mysql / schéma "bibliotheque"), que l'épreuve interdit de modifier.
+  # Base de données PostgreSQL
+  # ---------------------------------------------------------------------------
+  # application.properties reste figé sur MySQL (l'épreuve interdit d'y toucher).
+  # Rien n'est perdu : tous ses paramètres de connexion sont surchargés plus bas
+  # par variables d'environnement, dialecte Hibernate compris.
+  #
+  # Le schéma ne s'appelle pas « bibliotheque » par hasard : POSTGRES_DB le crée
+  # au premier démarrage, exactement comme MYSQL_DATABASE le faisait avant.
   # ---------------------------------------------------------------------------
   db:
-    image: mysql:8.0
+    image: postgres:15-alpine
     container_name: bibliotheque-db
     restart: unless-stopped
     environment:
       # Aucun mot de passe en dur : surchargeable via un fichier .env
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mysql}
-      # MySQL crée ce schéma tout seul au premier démarrage :
-      # c'est ce qui remplace le "CREATE DATABASE bibliotheque;" manuel du README
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-bibliotheque}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-bibliotheque}
     ports:
       # Exposé sur l'hôte pour pouvoir inspecter la base depuis un client externe
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      # Volume nommé : les données survivent à "docker compose down" (barème 3.1)
-      - db-data:/var/lib/mysql
+      # Volume nommé : les données survivent à "docker compose down" (barème 3.1).
+      # Le point de montage change avec le moteur : PostgreSQL stocke son cluster
+      # dans /var/lib/postgresql/data, là où MySQL utilisait /var/lib/mysql.
+      - db-data:/var/lib/postgresql/data
     healthcheck:
       # "depends_on" seul n'attend que le démarrage du conteneur, pas la
-      # disponibilité du serveur MySQL. C'est ce healthcheck qui fera la
-      # différence quand le backend viendra s'y accrocher (barème 3.4).
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      # disponibilité du serveur. C'est ce healthcheck qui fera la différence
+      # quand le backend viendra s'y accrocher (barème 3.4).
+      #
+      # pg_isready est l'équivalent de mysqladmin ping. On lui passe l'utilisateur
+      # ET la base : sans -d, il interroge la base "postgres" et peut répondre
+      # vert avant que "bibliotheque" ne soit disponible.
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -49,9 +58,18 @@ services:
       # "db" et non "localhost" : dans le réseau Docker, chaque service est
       # joignable par son nom. localhost, ici, désignerait le conteneur backend
       # lui-même.
-      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE:-bibliotheque}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mysql}
+      #
+      # L'URL JDBC perd les paramètres MySQL (useSSL, allowPublicKeyRetrieval,
+      # serverTimezone) : ils n'existent pas côté PostgreSQL, dont le pilote se
+      # connecte en clair sur un réseau Docker privé et lit le fuseau du serveur.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-bibliotheque}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      # LA variable qu'on oublie. application.properties fige
+      # spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL5InnoDBDialect.
+      # Sans cette surcharge, Hibernate génère du DDL et du SQL MySQL contre un
+      # serveur PostgreSQL : le démarrage échoue dès la création du schéma.
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQL95Dialect
     ports:
       - "8080:8080"
     depends_on:
@@ -99,25 +117,39 @@ services:
   #
   # Il ne peut pas s'exécuter plus tôt : les tables n'existent qu'une fois
   # Hibernate passé, donc une fois le backend démarré. D'où la dépendance au
-  # healthcheck du backend, et non à celui de la base.
+  # healthcheck du backend, et non à celui de la base. La remarque vaut tout
+  # autant sous PostgreSQL, dont le point d'entrée /docker-entrypoint-initdb.d
+  # ne joue ses scripts qu'à l'initialisation du volume — soit avant le backend.
   #
   # Le conteneur s'arrête dès le script terminé : le voir en statut "Exited (0)"
   # dans "docker compose ps" est le comportement normal, pas une panne.
   # ---------------------------------------------------------------------------
   seed:
-    image: mysql:8.0
+    # Même image que la base : elle embarque le client psql.
+    image: postgres:15-alpine
     container_name: bibliotheque-seed
     restart: "no"
     depends_on:
       backend:
         condition: service_healthy
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mysql}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-bibliotheque}
+      # psql lit ces variables de lui-même : la ligne de commande reste nue.
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-postgres}
+      # psql ne demande jamais de mot de passe sur une entrée non interactive :
+      # PGPASSWORD est le seul canal qui lui en fournisse un.
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGDATABASE: ${POSTGRES_DB:-bibliotheque}
+      # L'équivalent du --default-character-set=utf8mb4 de l'ancien client mysql :
+      # sans lui, les accents du jeu de données sont réinterprétés dans
+      # l'encodage de l'environnement et arrivent doublement encodés en base.
+      PGCLIENTENCODING: UTF8
     volumes:
       - ./docker/seed.sql:/seed.sql:ro
+    # ON_ERROR_STOP=1 : par défaut psql poursuit après une erreur et sort en 0.
+    # Un seed à moitié appliqué passerait alors pour un succès.
     command: >
-      sh -c 'mysql --default-character-set=utf8mb4 -h db -uroot -p"$$MYSQL_ROOT_PASSWORD" "$$MYSQL_DATABASE" < /seed.sql
+      sh -c 'psql -v ON_ERROR_STOP=1 -f /seed.sql
       && echo "[seed] jeu de donnees initial applique"'
 
   # ---------------------------------------------------------------------------

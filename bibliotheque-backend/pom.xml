@@ -36,9 +36,15 @@
 			<scope>runtime</scope>
 			<optional>true</optional>
 		</dependency>
+		<!--
+			Pilote JDBC PostgreSQL. La version n'est pas fixee ici : le parent
+			spring-boot-starter-parent 2.4.5 la pilote (42.2.19), une version
+			compilee pour Java 8 comme l'exige le <java.version>1.8</java.version>
+			ci-dessus.
+		-->
 		<dependency>
-			<groupId>mysql</groupId>
-			<artifactId>mysql-connector-java</artifactId>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>

@@ -11,12 +11,12 @@
 -- donc plus de jeton, donc plus aucune route utilisable depuis Swagger.
 --
 -- Les identifiants réutilisent ceux de docker/seed.sql (livres 1 à 5,
--- utilisateurs 1 à 4) pour que le service « seed », qui rejoue ses INSERT
--- IGNORE à chaque « docker compose up », les saute au lieu de réintroduire
--- l'ancien contenu par-dessus celui-ci.
+-- utilisateurs 1 à 4) pour que le service « seed », qui rejoue ses insertions
+-- « ON CONFLICT DO NOTHING » à chaque « docker compose up », les saute au lieu
+-- de réintroduire l'ancien contenu par-dessus celui-ci.
 -- =============================================================================
 
-SET NAMES utf8mb4;
+SET client_encoding = 'UTF8';
 
 -- --- Table rase, dans l'ordre imposé par les clés étrangères -----------------
 DELETE FROM reservation;
@@ -25,20 +25,25 @@ DELETE FROM user_role;
 DELETE FROM users;
 DELETE FROM books;
 
--- --- Les compteurs des tables à AUTO_INCREMENT -------------------------------
--- Reservation et Borrow déclarent GenerationType.IDENTITY : leur clé vient de
--- l'AUTO_INCREMENT de MySQL, un compteur distinct de hibernate_sequence — que
--- vider la table ne remet pas à zéro, et que le UPDATE du bas ne touche pas.
+-- --- Les compteurs des colonnes auto-incrémentées ----------------------------
+-- Reservation et Borrow déclarent GenerationType.IDENTITY : sous PostgreSQL,
+-- Hibernate leur donne une colonne serial, donc une séquence dédiée nommée
+-- <table>_<colonne>_seq — distincte de hibernate_sequence, que vider la table
+-- ne remet pas à zéro et que le setval du bas ne touche pas.
+--
+-- ALTER SEQUENCE ... RESTART WITH est l'équivalent direct de l'ancien
+-- ALTER TABLE ... AUTO_INCREMENT = de MySQL.
 --
 -- On les démarre à 100 pour que ces identifiants ne puissent jamais être
 -- confondus avec un livreId (1 à 5) ou un adherentId (1 à 4) pendant les tests.
-ALTER TABLE reservation AUTO_INCREMENT = 100;
-ALTER TABLE borrow AUTO_INCREMENT = 100;
+ALTER SEQUENCE reservation_reservation_id_seq RESTART WITH 100;
+ALTER SEQUENCE borrow_borrow_id_seq RESTART WITH 100;
 
 -- --- Les rôles ---------------------------------------------------------------
-INSERT IGNORE INTO role (role_id, role_name) VALUES
+INSERT INTO role (role_id, role_name) VALUES
     (1, 'Admin'),
-    (2, 'User');
+    (2, 'User')
+ON CONFLICT DO NOTHING;
 
 -- --- Les livres --------------------------------------------------------------
 -- no_of_copies est le seul indicateur de disponibilité que lise RG-01 :
@@ -67,14 +72,24 @@ INSERT INTO user_role (user_id, role_id) VALUES
 -- --- Les emprunts en cours ---------------------------------------------------
 -- A3 détient L2 à L5. return_date reste NULL : « empruntés et non rendus ».
 -- C'est ce qui justifie no_of_copies = 0 sur ces quatre livres.
+--
+-- La syntaxe d'intervalle change de moteur : MySQL écrivait INTERVAL 2 DAY,
+-- PostgreSQL attend un littéral, INTERVAL '2 days'.
 INSERT INTO borrow (book_id, user_id, issue_date, due_date, return_date) VALUES
-    (2, 4, NOW() - INTERVAL 2 DAY, NOW() + INTERVAL 5 DAY, NULL),
-    (3, 4, NOW() - INTERVAL 2 DAY, NOW() + INTERVAL 5 DAY, NULL),
-    (4, 4, NOW() - INTERVAL 2 DAY, NOW() + INTERVAL 5 DAY, NULL),
-    (5, 4, NOW() - INTERVAL 2 DAY, NOW() + INTERVAL 5 DAY, NULL);
+    (2, 4, NOW() - INTERVAL '2 days', NOW() + INTERVAL '5 days', NULL),
+    (3, 4, NOW() - INTERVAL '2 days', NOW() + INTERVAL '5 days', NULL),
+    (4, 4, NOW() - INTERVAL '2 days', NOW() + INTERVAL '5 days', NULL),
+    (5, 4, NOW() - INTERVAL '2 days', NOW() + INTERVAL '5 days', NULL);
 
 -- --- Le compteur d'identifiants ----------------------------------------------
--- books et users tirent leur clé de hibernate_sequence, pas d'un auto_increment.
--- Le laisser sous le plus grand identifiant posé ci-dessus ferait échouer la
--- première création depuis l'application sur une violation de clé primaire.
-UPDATE hibernate_sequence SET next_val = 100 WHERE next_val < 100;
+-- books et users tirent leur clé de hibernate_sequence, une vraie SEQUENCE sous
+-- PostgreSQL là où MySQL n'offrait qu'une table à colonne next_val. Le laisser
+-- sous le plus grand identifiant posé ci-dessus ferait échouer la première
+-- création depuis l'application sur une violation de clé primaire.
+--
+-- is_called = false : le prochain nextval() rendra exactement 100.
+SELECT setval('hibernate_sequence', 100, false)
+WHERE COALESCE(
+        (SELECT last_value FROM pg_sequences
+          WHERE schemaname = 'public' AND sequencename = 'hibernate_sequence'),
+        0) < 100;
