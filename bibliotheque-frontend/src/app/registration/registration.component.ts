@@ -29,8 +29,8 @@ export class RegistrationComponent implements OnInit {
     },
     error => this.notifications.refus(
       'User not created',
-      this.messageFromError(error),
-      this.detailFromError(error)
+      this.notifications.messageErreurHttp(error, 'The server refused the user creation request.'),
+      this.notifications.detailErreurHttp(error)
     ));
   }
 
@@ -40,16 +40,6 @@ export class RegistrationComponent implements OnInit {
 
   onSubmit() {
     this.saveUser();
-  }
-
-  private messageFromError(error: any): string {
-    return error?.error?.message
-      || error?.error
-      || 'The server refused the user creation request.';
-  }
-
-  private detailFromError(error: any): string | null {
-    return error?.status ? `HTTP ${error.status}` : null;
   }
 
 }

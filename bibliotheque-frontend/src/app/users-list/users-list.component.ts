@@ -35,8 +35,8 @@ export class UsersListComponent implements OnInit {
       },
       error: error => this.notifications.refus(
         'Users not loaded',
-        this.messageFromError(error),
-        this.detailFromError(error)
+        this.notifications.messageErreurHttp(error, 'The server refused the user request.'),
+        this.notifications.detailErreurHttp(error)
       )
     });
   }
@@ -47,16 +47,6 @@ export class UsersListComponent implements OnInit {
 
   updateUser(userId: number) {
     this.router.navigate(['update-user', userId ]);
-  }
-
-  private messageFromError(error: any): string {
-    return error?.error?.message
-      || error?.error
-      || 'The server refused the user request.';
-  }
-
-  private detailFromError(error: any): string | null {
-    return error?.status ? `HTTP ${error.status}` : null;
   }
 
 }

@@ -26,8 +26,8 @@ export class UpdateBookComponent implements OnInit {
       },
       error: error => this.notifications.refus(
         'Book not loaded',
-        this.messageFromError(error),
-        this.detailFromError(error)
+        this.notifications.messageErreurHttp(error, 'The server refused the book request.'),
+        this.notifications.detailErreurHttp(error)
       )
     });
   }
@@ -42,23 +42,13 @@ export class UpdateBookComponent implements OnInit {
     },
     error => this.notifications.refus(
       'Book not updated',
-      this.messageFromError(error),
-      this.detailFromError(error)
+      this.notifications.messageErreurHttp(error, 'The server refused the book request.'),
+      this.notifications.detailErreurHttp(error)
     ));
   }
 
   goToBooksList() {
     this.router.navigate(['/books']);
-  }
-
-  private messageFromError(error: any): string {
-    return error?.error?.message
-      || error?.error
-      || 'The server refused the book request.';
-  }
-
-  private detailFromError(error: any): string | null {
-    return error?.status ? `HTTP ${error.status}` : null;
   }
 
 }

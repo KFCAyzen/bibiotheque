@@ -71,6 +71,24 @@ export class NotificationService {
     this.emettre('refus', titre, message, detail, null);
   }
 
+  messageErreurHttp(erreur: any, messageParDefaut: string): string {
+    if (erreur?.status === 0) {
+      return 'Backend unavailable. Check that the server is running, then try again.';
+    }
+
+    return erreur?.error?.message
+      || (typeof erreur?.error === 'string' ? erreur.error : null)
+      || messageParDefaut;
+  }
+
+  detailErreurHttp(erreur: any): string | null {
+    if (erreur?.status === 0) {
+      return 'No response from backend';
+    }
+
+    return erreur?.status ? `HTTP ${erreur.status}` : null;
+  }
+
   private emettre(
     ton: TonNotification,
     titre: string,

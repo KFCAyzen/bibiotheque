@@ -28,8 +28,8 @@ export class BooksListComponent implements OnInit {
       },
       error: error => this.notifications.refus(
         'Books not loaded',
-        this.messageFromError(error),
-        this.detailFromError(error)
+        this.notifications.messageErreurHttp(error, 'The server refused the book request.'),
+        this.notifications.detailErreurHttp(error)
       )
     });
   }
@@ -49,24 +49,14 @@ export class BooksListComponent implements OnInit {
     error => {
       this.notifications.refus(
         'Book not deleted',
-        this.messageFromError(error),
-        this.detailFromError(error)
+        this.notifications.messageErreurHttp(error, 'The server refused the book request.'),
+        this.notifications.detailErreurHttp(error)
       );
     });
   }
 
   bookDetails(bookId: number) {
     this.router.navigate(['book-details', bookId ]);
-  }
-
-  private messageFromError(error: any): string {
-    return error?.error?.message
-      || error?.error
-      || 'The server refused the book request.';
-  }
-
-  private detailFromError(error: any): string | null {
-    return error?.status ? `HTTP ${error.status}` : null;
   }
 
 }

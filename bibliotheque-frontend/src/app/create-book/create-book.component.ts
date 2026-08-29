@@ -29,8 +29,8 @@ export class CreateBookComponent implements OnInit {
     },
     error => this.notifications.refus(
       'Book not created',
-      this.messageFromError(error),
-      this.detailFromError(error)
+      this.notifications.messageErreurHttp(error, 'The server refused the book creation request.'),
+      this.notifications.detailErreurHttp(error)
     ));
   }
 
@@ -40,16 +40,6 @@ export class CreateBookComponent implements OnInit {
 
   onSubmit() {
     this.saveBook();
-  }
-
-  private messageFromError(error: any): string {
-    return error?.error?.message
-      || error?.error
-      || 'The server refused the book creation request.';
-  }
-
-  private detailFromError(error: any): string | null {
-    return error?.status ? `HTTP ${error.status}` : null;
   }
 
 }

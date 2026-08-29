@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { NgForm } from '@angular/forms';
 import { Router } from '@angular/router';
+import { NotificationService } from '../_service/notification.service';
 import { UserAuthService } from '../_service/user-auth.service';
 import { UsersService } from '../_service/users.service';
 
@@ -13,6 +14,7 @@ export class LoginComponent implements OnInit {
 
   constructor(private userService: UsersService,
     private userAuthSerivce: UserAuthService,
+    private notifications: NotificationService,
     private router: Router
   ) { }
 
@@ -35,7 +37,11 @@ export class LoginComponent implements OnInit {
         }
       },
       (error)=>{
-        console.log(error);
+        this.notifications.refus(
+          'Login failed',
+          this.notifications.messageErreurHttp(error, 'The server refused the login request.'),
+          this.notifications.detailErreurHttp(error)
+        );
       }
     );
   }
