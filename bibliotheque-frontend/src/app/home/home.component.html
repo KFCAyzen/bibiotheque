@@ -1,3 +1,50 @@
-<div class="container">
-    <p class="home">Welcome to Online Library System</p>
-</div>
+<section class="home-page">
+  <div class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">Open shelves, simple lending</p>
+      <h1>Welcome to your online library.</h1>
+      <p class="lead">
+        Find the right book, follow reservations, and keep every loan moving
+        from one calm place.
+      </p>
+      <div class="hero-actions">
+        <a routerLink="/login" class="btn btn-primary">Enter the library</a>
+        <a routerLink="/borrow-book" class="btn btn-secondary">Browse loans</a>
+      </div>
+    </div>
+
+    <div class="reading-room" aria-label="Library reading room illustration">
+      <div class="shelf shelf-top"></div>
+      <div class="book-row row-one">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="desk-card">
+        <span class="stamp">Available</span>
+        <h2>Reserve, borrow, return</h2>
+        <p>Everything stays readable for librarians and members.</p>
+      </div>
+      <div class="book-row row-two">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="shelf shelf-bottom"></div>
+    </div>
+  </div>
+
+  <div class="quick-paths" aria-label="Library shortcuts">
+    <a routerLink="/books" class="path">
+      <span class="path-number">01</span>
+      <strong>Catalog</strong>
+      <span>Review titles, quantities, and book records.</span>
+    </a>
+    <a routerLink="/reservations" class="path">
+      <span class="path-number">02</span>
+      <strong>Reservations</strong>
+      <span>Track requests before they expire.</span>
+    </a>
+    <a routerLink="/return-book" class="path">
+      <span class="path-number">03</span>
+      <strong>Returns</strong>
+      <span>Close loans and free books for the next reader.</span>
+    </a>
+  </div>
+</section>

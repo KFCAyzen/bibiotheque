@@ -1,4 +1,165 @@
-.home {
-    margin-top: 200px;
-    font-size: 80px;
+.home-page {
+  margin: -0.6rem auto 0;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  min-height: 560px;
+  overflow: hidden;
+  border: 1px solid var(--trait);
+  background:
+    linear-gradient(90deg, rgba(36, 31, 26, 0.9), rgba(36, 31, 26, 0.34)),
+    radial-gradient(circle at 72% 34%, rgba(240, 232, 212, 0.5), transparent 31%),
+    linear-gradient(135deg, #2b241d, #675039 52%, #a98258);
+  box-shadow: 0 24px 60px rgba(36, 31, 26, 0.18);
+}
+
+.hero-copy,
+.reading-room {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(2rem, 6vw, 5.2rem);
+}
+
+.eyebrow,
+.path-number,
+.stamp {
+  font-family: var(--machine);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.eyebrow,
+.lead {
+  color: rgba(240, 232, 212, 0.82);
+}
+
+.hero h1 {
+  max-width: 11ch;
+  margin: 1rem 0;
+  color: #fffaf0;
+  font-size: clamp(2.4rem, 6vw, 5.45rem);
+}
+
+.lead {
+  max-width: 590px;
+  margin-bottom: 1.7rem;
+  font-size: clamp(1.02rem, 2vw, 1.28rem);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.hero-actions .btn {
+  padding: 0.72rem 1.15rem;
+}
+
+.reading-room {
+  gap: 1.2rem;
+  padding-left: 1rem;
+}
+
+.shelf {
+  height: 16px;
+  background: linear-gradient(90deg, #1d1712, #6b4a32);
+  box-shadow: 0 12px 0 rgba(29, 23, 18, 0.25);
+}
+
+.book-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  align-items: end;
+  gap: 0.5rem;
+  min-height: 116px;
+}
+
+.row-two {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.book-row span {
+  height: 96px;
+  border: 1px solid rgba(255, 250, 240, 0.2);
+  background: #dfc27b;
+}
+
+.book-row span:nth-child(2n) { height: 116px; background: #6f8f76; }
+.book-row span:nth-child(3n) { height: 84px; background: #5b3e8e; }
+.book-row span:nth-child(4n) { height: 108px; background: #e9dfc6; }
+
+.desk-card {
+  width: min(430px, 94%);
+  margin: 0 auto;
+  padding: 1.35rem;
+  border: 1px solid rgba(240, 232, 212, 0.42);
+  background: rgba(240, 232, 212, 0.91);
+  color: var(--encre);
+  box-shadow: 0 22px 45px rgba(0, 0, 0, 0.24);
+}
+
+.desk-card h2 {
+  margin: 0.55rem 0 0.35rem;
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+}
+
+.desk-card p {
+  margin: 0;
+  color: var(--encre-douce);
+}
+
+.stamp {
+  color: var(--sauge);
+}
+
+.quick-paths {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-top: 1.2rem;
+  border: 1px solid var(--trait);
+  background: var(--trait);
+}
+
+.path {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 145px;
+  padding: 1.1rem;
+  background: var(--fiche);
+  color: var(--encre);
+  text-decoration: none;
+}
+
+.path:hover {
+  background: #fbf7ec;
+}
+
+.path strong {
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 400;
+}
+
+.path span:last-child {
+  color: var(--encre-douce);
+}
+
+@media (max-width: 860px) {
+  .hero,
+  .quick-paths {
+    grid-template-columns: 1fr;
+  }
+
+  .reading-room {
+    min-height: 340px;
+    padding-top: 0;
+  }
 }

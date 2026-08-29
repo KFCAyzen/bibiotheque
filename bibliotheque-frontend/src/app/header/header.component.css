@@ -1,19 +1,90 @@
-/* La mention « Hey <nom> » était poussée à droite par un margin-left: 1000px.
-   Sur un écran de 1440 px cela faisait déborder la barre de 276 px et laissait
-   une bande noire à droite de toutes les pages. Un espace auto fait le même
-   travail sans jamais dépasser. */
-.right-text {
-  margin-left: auto;
-  font-size: 17px;
+.app-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: 0 12px 30px rgba(36, 31, 26, 0.16);
 }
 
-/* Le nom de la personne connectée est une donnée relevée, pas un titre :
-   il passe à la machine, en discret, avant le bouton de sortie. */
-.right-text .nav-link.disabled strong {
-  font-weight: 400;
+.app-navbar .container-fluid {
+  max-width: 1240px;
+  padding-left: clamp(1rem, 3vw, 2rem);
+  padding-right: clamp(1rem, 3vw, 2rem);
 }
 
-/* La façade du meuble tient sur une seule ligne jusqu'au repli mobile. */
-.navbar-nav {
+.navbar-brand {
+  display: inline-flex;
   align-items: center;
+  gap: 0.65rem;
+  margin-right: 1.6rem;
+}
+
+.brand-mark {
+  display: inline-grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border: 1px solid rgba(240, 232, 212, 0.38);
+  background: rgba(240, 232, 212, 0.12);
+  color: var(--fiche);
+  font-family: var(--serif);
+  font-size: 1.15rem;
+}
+
+.main-nav {
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.main-nav .nav-link {
+  border: 1px solid transparent;
+  border-bottom-color: transparent;
+}
+
+.main-nav .nav-link:hover,
+.main-nav .nav-link.active {
+  border-color: rgba(240, 232, 212, 0.18);
+  background: rgba(240, 232, 212, 0.08);
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: 1rem;
+}
+
+.reader-chip {
+  max-width: 220px;
+  overflow: hidden;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid rgba(240, 232, 212, 0.16);
+  color: rgba(240, 232, 212, 0.74);
+  font-family: var(--machine);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 991.98px) {
+  .navbar-collapse {
+    padding-top: 0.9rem;
+  }
+
+  .main-nav {
+    align-items: stretch;
+  }
+
+  .main-nav .nav-link {
+    padding: 0.58rem 0.7rem;
+  }
+
+  .navbar-actions {
+    align-items: stretch;
+    flex-direction: column;
+    margin: 0.8rem 0 0;
+  }
+
+  .reader-chip {
+    max-width: none;
+  }
 }
