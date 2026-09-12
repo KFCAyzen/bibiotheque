@@ -11,7 +11,9 @@ import com.ibizabroker.bibliotheque.entity.StatutReservation;
 import com.ibizabroker.bibliotheque.entity.Users;
 import com.ibizabroker.bibliotheque.exceptions.BadRequestException;
 import com.ibizabroker.bibliotheque.exceptions.ConflictException;
+import com.ibizabroker.bibliotheque.exceptions.ForbiddenException;
 import com.ibizabroker.bibliotheque.exceptions.NotFoundException;
+import com.ibizabroker.bibliotheque.security.UtilisateurAuthentifie;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,12 @@ import java.util.stream.Collectors;
  * Le contrôleur ne fait que router : validation, chargement des ressources,
  * application des six règles de gestion et conversion en DTO se passent ici.
  * L'entité Reservation n'en sort jamais.
+ *
+ * Depuis la séance 4, chaque opération reçoit aussi le demandeur — l'objet
+ * UtilisateurAuthentifie construit par JwtService à partir du token. C'est
+ * lui, et jamais le corps de la requête, qui dit qui parle (RS-04). Un
+ * ADHERENT ne voit et ne modifie que ses réservations (RS-03, RS-05) ; un
+ * BIBLIOTHECAIRE n'est soumis à aucune de ces restrictions.
  *
  * Injection par constructeur plutôt que par @Autowired sur les champs : les
  * dépendances deviennent explicites, et le service est instanciable tel quel
@@ -58,23 +66,24 @@ public class ReservationService {
     /**
      * Crée une réservation.
      *
-     * Ordre des contrôles, du plus général au plus spécifique : forme de la
-     * requête (400), existence des ressources (404), puis règles de gestion
-     * (409). Un identifiant inconnu doit être signalé comme tel avant qu'on ne
-     * se prononce sur la disponibilité du livre, sinon RG-01 masquerait le
-     * vrai problème.
+     * Ordre des contrôles, du plus général au plus spécifique : identité du
+     * demandeur (403), forme de la requête (400), existence des ressources
+     * (404), puis règles de gestion (409). Un identifiant inconnu doit être
+     * signalé comme tel avant qu'on ne se prononce sur la disponibilité du
+     * livre, sinon RG-01 masquerait le vrai problème.
      */
     @Transactional
-    public ReservationResponseDTO creer(ReservationRequestDTO demande) {
+    public ReservationResponseDTO creer(ReservationRequestDTO demande, UtilisateurAuthentifie demandeur) {
+        Integer adherentId = determinerAdherent(demande, demandeur);
         valider(demande);
 
         Books livre = booksRepository.findById(demande.getLivreId())
                 .orElseThrow(() -> new NotFoundException(
                         "Aucun livre avec l'identifiant " + demande.getLivreId() + "."));
 
-        Users adherent = usersRepository.findById(demande.getAdherentId())
+        Users adherent = usersRepository.findById(adherentId)
                 .orElseThrow(() -> new NotFoundException(
-                        "Aucun adhérent avec l'identifiant " + demande.getAdherentId() + "."));
+                        "Aucun adhérent avec l'identifiant " + adherentId + "."));
 
         verifierLivreIndisponible(livre);
         verifierAbsenceDeDoublon(livre, adherent);
@@ -103,10 +112,26 @@ public class ReservationService {
      * Les deux filtres sont indépendants et cumulables. Un adhérent inconnu ne
      * déclenche pas de 404 : un filtre sans résultat renvoie une liste vide,
      * ce qui est la réponse correcte à « montre-moi ses réservations ».
+     *
+     * RS-05 : pour un ADHERENT, le filtre adherentId est forcé à son propre
+     * identifiant. S'il en demande explicitement un autre, on refuse en 403
+     * plutôt que de corriger en silence : le refus est visible, donc
+     * démontrable, et l'appelant comprend pourquoi la liste n'est pas celle
+     * qu'il attendait.
      */
     @Transactional(readOnly = true)
-    public List<ReservationResponseDTO> lister(String statutDemande, Integer adherentId) {
+    public List<ReservationResponseDTO> lister(String statutDemande, Integer adherentId,
+                                               UtilisateurAuthentifie demandeur) {
         StatutReservation statut = convertirStatut(statutDemande);
+
+        if (!demandeur.estBibliothecaire()) {
+            if (adherentId != null && !adherentId.equals(demandeur.getUserId())) {
+                throw new ForbiddenException(
+                        "RS-05 : un adhérent ne consulte que ses propres réservations ; "
+                                + "le filtre adherentId=" + adherentId + " n'est pas le vôtre.");
+            }
+            adherentId = demandeur.getUserId();
+        }
 
         List<Reservation> reservations;
         if (statut != null && adherentId != null) {
@@ -122,9 +147,12 @@ public class ReservationService {
         return versDTO(reservations);
     }
 
+    /** RS-03 : un ADHERENT ne consulte qu'une réservation qui lui appartient. */
     @Transactional(readOnly = true)
-    public ReservationResponseDTO consulter(Integer id) {
-        return versDTO(chargerReservation(id));
+    public ReservationResponseDTO consulter(Integer id, UtilisateurAuthentifie demandeur) {
+        Reservation reservation = chargerReservation(id);
+        verifierPropriete(reservation, demandeur);
+        return versDTO(reservation);
     }
 
     /** Bonus : les réservations dont la validité est écoulée. */
@@ -142,10 +170,15 @@ public class ReservationService {
      *
      * RG-05 et RG-06 sont les deux faces d'un même contrôle : on n'annule que
      * depuis un statut actif, donc jamais depuis un statut définitif.
+     *
+     * RS-03 : le contrôle de propriété précède celui du statut. Un adhérent
+     * ne doit rien apprendre d'une réservation qui n'est pas la sienne, pas
+     * même qu'elle est déjà annulée.
      */
     @Transactional
-    public ReservationResponseDTO annuler(Integer id) {
+    public ReservationResponseDTO annuler(Integer id, UtilisateurAuthentifie demandeur) {
         Reservation reservation = chargerReservation(id);
+        verifierPropriete(reservation, demandeur);
 
         if (reservation.getStatut().estDefinitif()) {
             throw new ConflictException(
@@ -158,6 +191,11 @@ public class ReservationService {
         return versDTO(reservationRepository.save(reservation));
     }
 
+    /**
+     * Aucun contrôle d'identité ici : la suppression est réservée au
+     * BIBLIOTHECAIRE par WebSecurityConfiguration et par le @PreAuthorize du
+     * contrôleur (RS-02), et un bibliothécaire agit sur toutes les réservations.
+     */
     @Transactional
     public void supprimer(Integer id) {
         reservationRepository.delete(chargerReservation(id));
@@ -184,6 +222,54 @@ public class ReservationService {
     }
 
     // =========================================================================
+    // Règles de sécurité
+    // =========================================================================
+
+    /**
+     * RS-04 : l'identité vient du token, pas du corps de la requête.
+     *
+     * Pour un ADHERENT, l'adherentId du corps est superflu : c'est le sien,
+     * point. S'il en envoie un autre, on refuse en 403 au lieu de le corriger
+     * en silence — la tentative d'usurpation mérite d'être nommée, et
+     * journalisée par le handler. Pour un BIBLIOTHECAIRE, qui réserve au nom
+     * de n'importe qui, le champ reste obligatoire et sa valeur fait foi.
+     */
+    private Integer determinerAdherent(ReservationRequestDTO demande, UtilisateurAuthentifie demandeur) {
+        if (demandeur.estBibliothecaire()) {
+            if (demande == null || demande.getAdherentId() == null) {
+                throw new BadRequestException(
+                        "Le champ « adherentId » est obligatoire pour un bibliothécaire : "
+                                + "il désigne l'adhérent au nom duquel réserver.");
+            }
+            return demande.getAdherentId();
+        }
+
+        Integer adherentIdRecu = demande == null ? null : demande.getAdherentId();
+        if (adherentIdRecu != null && !adherentIdRecu.equals(demandeur.getUserId())) {
+            throw new ForbiddenException(
+                    "RS-04 : un adhérent ne réserve qu'en son nom ; adherentId="
+                            + adherentIdRecu + " n'est pas le vôtre (" + demandeur.getUserId() + ").");
+        }
+        return demandeur.getUserId();
+    }
+
+    /**
+     * RS-03 : une réservation n'est visible et modifiable que par son
+     * propriétaire, sauf pour le BIBLIOTHECAIRE.
+     */
+    private void verifierPropriete(Reservation reservation, UtilisateurAuthentifie demandeur) {
+        if (demandeur.estBibliothecaire()) {
+            return;
+        }
+        Integer proprietaire = reservation.getAdherent().getUserId();
+        if (!proprietaire.equals(demandeur.getUserId())) {
+            throw new ForbiddenException(
+                    "RS-03 : la réservation " + reservation.getReservationId()
+                            + " ne vous appartient pas.");
+        }
+    }
+
+    // =========================================================================
     // Validation et règles de gestion
     // =========================================================================
 
@@ -194,6 +280,9 @@ public class ReservationService {
      * la séance 1) : @NotNull et @Valid seraient ignorés en silence, ce qui est
      * pire qu'une validation explicite. Le message nomme le champ manquant,
      * comme l'exige l'énoncé.
+     *
+     * adherentId n'est plus contrôlé ici : determinerAdherent l'a déjà
+     * tranché selon le rôle du demandeur (RS-04).
      */
     private void valider(ReservationRequestDTO demande) {
         if (demande == null) {
@@ -202,9 +291,6 @@ public class ReservationService {
         }
         if (demande.getLivreId() == null) {
             throw new BadRequestException("Le champ « livreId » est obligatoire.");
-        }
-        if (demande.getAdherentId() == null) {
-            throw new BadRequestException("Le champ « adherentId » est obligatoire.");
         }
     }
 

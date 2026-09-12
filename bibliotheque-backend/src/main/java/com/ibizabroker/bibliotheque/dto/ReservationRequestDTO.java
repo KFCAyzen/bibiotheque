@@ -13,6 +13,11 @@ import lombok.Data;
  * arrive à null, ce qui est précisément la condition détectée par
  * ReservationService pour répondre 400 en nommant le champ manquant. Un int
  * primitif vaudrait 0 et laisserait passer la requête.
+ *
+ * Depuis la séance 4, adherentId n'est plus une source de vérité (RS-04) :
+ * pour un ADHERENT, l'identité vient du token et ce champ est facultatif —
+ * s'il est présent, il doit être le sien, sinon 403. Seul un BIBLIOTHECAIRE,
+ * qui réserve au nom d'un adhérent, doit le renseigner.
  */
 @Data
 public class ReservationRequestDTO {

@@ -203,7 +203,13 @@ components:
         Le corps accepté par POST /api/reservations. Deux champs, pas un de
         plus : les dates et le statut sont posés par le serveur. Envoyer un
         dateExpiration n'aurait aucun effet — le champ est simplement ignoré.
-      required: [livreId, adherentId]
+
+
+        Depuis la séance 4, adherentId n'est plus une source de vérité
+        (RS-04) : l'identité vient du jeton. Un ADHERENT peut l'omettre ; s'il
+        le renseigne, ce doit être le sien, sinon 403. Seul un BIBLIOTHECAIRE,
+        qui réserve au nom d'un adhérent, doit le fournir.
+      required: [livreId]
       properties:
         livreId:
           type: integer
@@ -211,7 +217,9 @@ components:
           example: 2
         adherentId:
           type: integer
-          description: userId de l'adhérent qui réserve.
+          description: >
+            userId de l'adhérent pour qui réserver. Obligatoire pour un
+            BIBLIOTHECAIRE ; facultatif pour un ADHERENT, et forcément le sien.
           example: 2
 
     ReservationResponse:
@@ -690,10 +698,14 @@ paths:
         dateExpiration et statut sont déterminés par le serveur.
 
 
-        Ordre des contrôles : champs obligatoires (400), existence du livre et
-        de l'adhérent (404), puis règles de gestion (409). Un identifiant
-        inconnu est donc signalé comme tel avant qu'on ne se prononce sur la
-        disponibilité du livre.
+        ADHERENT : réserve pour lui-même uniquement, l'identité vient du jeton
+        (RS-04). BIBLIOTHECAIRE : réserve au nom de n'importe quel adhérent.
+
+
+        Ordre des contrôles : identité (403), champs obligatoires (400),
+        existence du livre et de l'adhérent (404), puis règles de gestion
+        (409). Un identifiant inconnu est donc signalé comme tel avant qu'on
+        ne se prononce sur la disponibilité du livre.
       requestBody:
         required: true
         content:
@@ -729,7 +741,30 @@ paths:
                 erreur: Bad Request
                 message: 'Le champ « livreId » est obligatoire.'
         '401':
-          description: Jeton absent ou invalide
+          description: >
+            RS-01 — jeton absent, expiré ou invalide. Le message précise
+            lequel ; un jeton expiré invite à se reconnecter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-09-12T21:40:00.000'
+                statut: 401
+                erreur: Unauthorized
+                message: 'Le jeton a expiré : reconnectez-vous via POST /authenticate.'
+        '403':
+          description: >
+            RS-04 — un ADHERENT a envoyé l'adherentId d'un autre adhérent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-09-12T21:40:00.000'
+                statut: 403
+                erreur: Forbidden
+                message: 'RS-04 : un adhérent ne réserve qu''en son nom ; adherentId=3 n''est pas le vôtre (2).'
         '404':
           description: Aucun livre, ou aucun adhérent, avec cet identifiant
           content:
@@ -777,6 +812,10 @@ paths:
         Les deux filtres sont facultatifs et cumulables. Un adherentId inconnu
         ne déclenche pas de 404 : un filtre sans résultat renvoie une liste
         vide, ce qui est la réponse correcte à « montre-moi ses réservations ».
+
+
+        ADHERENT : uniquement ses propres réservations, le filtre adherentId
+        est forcé au sien (RS-05). BIBLIOTHECAIRE : toutes.
       parameters:
         - name: statut
           in: query
@@ -787,7 +826,9 @@ paths:
         - name: adherentId
           in: query
           required: false
-          description: Filtre par adhérent (userId).
+          description: >
+            Filtre par adhérent (userId). Pour un ADHERENT, seul son propre
+            identifiant est accepté ; un autre vaut 403.
           schema:
             type: integer
           example: 2
@@ -814,7 +855,30 @@ paths:
                 erreur: Bad Request
                 message: 'Statut « PIZZA » inconnu. Valeurs acceptées : EN_ATTENTE, DISPONIBLE, ANNULEE, EXPIREE, HONOREE.'
         '401':
-          description: Jeton absent ou invalide
+          description: >
+            RS-01 — jeton absent, expiré ou invalide. Le message précise
+            lequel ; un jeton expiré invite à se reconnecter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-09-12T21:40:00.000'
+                statut: 401
+                erreur: Unauthorized
+                message: 'Le jeton a expiré : reconnectez-vous via POST /authenticate.'
+        '403':
+          description: >
+            RS-05 — un ADHERENT a filtré sur l'adherentId d'un autre adhérent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-09-12T21:40:00.000'
+                statut: 403
+                erreur: Forbidden
+                message: 'RS-05 : un adhérent ne consulte que ses propres réservations ; le filtre adherentId=3 n''est pas le vôtre.'
 
   # ---------------------------------------------------------------------------
   /api/reservations/expirees:
@@ -834,6 +898,9 @@ paths:
         Chemin littéral déclaré à côté de /{id} : Spring donne toujours la
         priorité au littéral sur le gabarit, « expirees » n'est donc jamais
         interprété comme un identifiant.
+
+
+        Vue transversale sur tous les adhérents : réservée au BIBLIOTHECAIRE.
       responses:
         '200':
           description: Les réservations expirées
@@ -844,7 +911,30 @@ paths:
                 items:
                   $ref: '#/components/schemas/ReservationResponse'
         '401':
-          description: Jeton absent ou invalide
+          description: >
+            RS-01 — jeton absent, expiré ou invalide. Le message précise
+            lequel ; un jeton expiré invite à se reconnecter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-09-12T21:40:00.000'
+                statut: 401
+                erreur: Unauthorized
+                message: 'Le jeton a expiré : reconnectez-vous via POST /authenticate.'
+        '403':
+          description: >
+            RS-02 — le demandeur est un ADHERENT.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-09-12T21:40:00.000'
+                statut: 403
+                erreur: Forbidden
+                message: 'RS-02 : cette action est réservée au rôle BIBLIOTHECAIRE.'
 
   # ---------------------------------------------------------------------------
   /api/reservations/{id}:
@@ -859,6 +949,9 @@ paths:
     get:
       tags: [Réservations]
       summary: Consulter une réservation
+      description: >
+        ADHERENT : seulement si elle lui appartient (RS-03).
+        BIBLIOTHECAIRE : toutes.
       responses:
         '200':
           description: La réservation demandée
@@ -867,7 +960,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReservationResponse'
         '401':
-          description: Jeton absent ou invalide
+          description: >
+            RS-01 — jeton absent, expiré ou invalide. Le message précise
+            lequel ; un jeton expiré invite à se reconnecter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-09-12T21:40:00.000'
+                statut: 401
+                erreur: Unauthorized
+                message: 'Le jeton a expiré : reconnectez-vous via POST /authenticate.'
+        '403':
+          description: >
+            RS-03 — la réservation appartient à un autre adhérent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-09-12T21:40:00.000'
+                statut: 403
+                erreur: Forbidden
+                message: 'RS-03 : la réservation 101 ne vous appartient pas.'
         '404':
           description: Aucune réservation avec cet identifiant
           content:
@@ -887,11 +1003,38 @@ paths:
         Suppression définitive de la ligne, quel que soit son statut. À ne pas
         confondre avec l'annulation : annuler conserve la trace au statut
         ANNULEE, supprimer efface.
+
+
+        Réservée au BIBLIOTHECAIRE (RS-02) : un ADHERENT reçoit 403, même sur
+        sa propre réservation.
       responses:
         '204':
           description: Suppression effectuée, sans corps de réponse
         '401':
-          description: Jeton absent ou invalide
+          description: >
+            RS-01 — jeton absent, expiré ou invalide. Le message précise
+            lequel ; un jeton expiré invite à se reconnecter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-09-12T21:40:00.000'
+                statut: 401
+                erreur: Unauthorized
+                message: 'Le jeton a expiré : reconnectez-vous via POST /authenticate.'
+        '403':
+          description: >
+            RS-02 — le demandeur est un ADHERENT.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-09-12T21:40:00.000'
+                statut: 403
+                erreur: Forbidden
+                message: 'RS-02 : cette action est réservée au rôle BIBLIOTHECAIRE.'
         '404':
           description: Aucune réservation avec cet identifiant
           content:
@@ -916,6 +1059,10 @@ paths:
 
         RG-05 et RG-06 sont les deux faces du même contrôle : on n'annule que
         depuis EN_ATTENTE ou DISPONIBLE, donc jamais depuis un statut définitif.
+
+
+        ADHERENT : seulement sa propre réservation (RS-03). BIBLIOTHECAIRE :
+        toutes. Le contrôle de propriété précède celui du statut.
       parameters:
         - name: id
           in: path
@@ -931,7 +1078,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReservationResponse'
         '401':
-          description: Jeton absent ou invalide
+          description: >
+            RS-01 — jeton absent, expiré ou invalide. Le message précise
+            lequel ; un jeton expiré invite à se reconnecter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-09-12T21:40:00.000'
+                statut: 401
+                erreur: Unauthorized
+                message: 'Le jeton a expiré : reconnectez-vous via POST /authenticate.'
+        '403':
+          description: >
+            RS-03 — la réservation appartient à un autre adhérent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                horodatage: '2026-09-12T21:40:00.000'
+                statut: 403
+                erreur: Forbidden
+                message: 'RS-03 : la réservation 101 ne vous appartient pas.'
         '404':
           description: Aucune réservation avec cet identifiant
           content:

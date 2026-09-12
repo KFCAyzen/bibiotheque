@@ -46,6 +46,15 @@ public class JwtUtil {
     }
 
     public String generateToken(UserDetails userDetails) {
+        return generateToken(userDetails, TOKEN_VALIDITY);
+    }
+
+    /**
+     * Variante a duree de validite explicite, en secondes. Une valeur negative
+     * produit un token deja expire : c'est ce qui permet au test d'integration
+     * de verifier le 401 « jeton expire » sans attendre cinq heures.
+     */
+    public String generateToken(UserDetails userDetails, long validiteEnSecondes) {
 
         Map<String, Object> claims = new HashMap<>();
 
@@ -53,7 +62,7 @@ public class JwtUtil {
                 .setClaims(claims)
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + TOKEN_VALIDITY * 1000))
+                .setExpiration(new Date(System.currentTimeMillis() + validiteEnSecondes * 1000))
                 .signWith(SignatureAlgorithm.HS512, SECRET_KEY)
                 .compact();
     }

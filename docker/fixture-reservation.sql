@@ -6,6 +6,12 @@
 --   A1              l'adhérent réservataire principal
 --   A2              l'adhérent qui saturera son quota (RG-03)
 --   A3              l'emprunteur : c'est lui qui détient L2 à L5
+--   admin           le BIBLIOTHECAIRE (rôle Admin)
+--
+-- Séance 4 : A1 et A2 sont les deux comptes ADHERENT (rôle User) de la
+-- démonstration de sécurité, chacun avec une réservation à son nom —
+-- la 100 pour A1, la 101 pour A2. C'est ce qui permet de provoquer les
+-- refus RS-03 (A1 sur la 101) et RS-04 (A1 réservant pour A2) en direct.
 --
 -- Le compte « admin » est conservé : sans lui, plus de POST /authenticate,
 -- donc plus de jeton, donc plus aucune route utilisable depuis Swagger.
@@ -36,7 +42,9 @@ DELETE FROM books;
 --
 -- On les démarre à 100 pour que ces identifiants ne puissent jamais être
 -- confondus avec un livreId (1 à 5) ou un adherentId (1 à 4) pendant les tests.
-ALTER SEQUENCE reservation_reservation_id_seq RESTART WITH 100;
+-- Les deux réservations posées plus bas prennent 100 et 101 : la séquence
+-- repart donc à 102 pour celles que l'application créera.
+ALTER SEQUENCE reservation_reservation_id_seq RESTART WITH 102;
 ALTER SEQUENCE borrow_borrow_id_seq RESTART WITH 100;
 
 -- --- Les rôles ---------------------------------------------------------------
@@ -80,6 +88,15 @@ INSERT INTO borrow (book_id, user_id, issue_date, due_date, return_date) VALUES
     (3, 4, NOW() - INTERVAL '2 days', NOW() + INTERVAL '5 days', NULL),
     (4, 4, NOW() - INTERVAL '2 days', NOW() + INTERVAL '5 days', NULL),
     (5, 4, NOW() - INTERVAL '2 days', NOW() + INTERVAL '5 days', NULL);
+
+-- --- Les réservations de départ (séance 4) -----------------------------------
+-- Une par adhérent, sur des livres empruntés (RG-01), au statut EN_ATTENTE,
+-- valables encore six jours (RG-04 : sept jours depuis la veille).
+--   100 : A1 sur L2      101 : A2 sur L3
+-- A3 n'en a pas : c'est l'emprunteur, il détient déjà les livres.
+INSERT INTO reservation (reservation_id, book_id, user_id, date_reservation, date_expiration, statut) VALUES
+    (100, 2, 2, NOW() - INTERVAL '1 day', NOW() + INTERVAL '6 days', 'EN_ATTENTE'),
+    (101, 3, 3, NOW() - INTERVAL '1 day', NOW() + INTERVAL '6 days', 'EN_ATTENTE');
 
 -- --- Le compteur d'identifiants ----------------------------------------------
 -- books et users tirent leur clé de hibernate_sequence, une vraie SEQUENCE sous

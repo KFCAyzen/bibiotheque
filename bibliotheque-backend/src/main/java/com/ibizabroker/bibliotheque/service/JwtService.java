@@ -4,20 +4,17 @@ import com.ibizabroker.bibliotheque.dao.UsersRepository;
 import com.ibizabroker.bibliotheque.entity.JwtRequest;
 import com.ibizabroker.bibliotheque.entity.JwtResponse;
 import com.ibizabroker.bibliotheque.entity.Users;
+import com.ibizabroker.bibliotheque.security.UtilisateurAuthentifie;
 import com.ibizabroker.bibliotheque.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-
-import java.util.HashSet;
-import java.util.Set;
 
 @Service
 public class JwtService implements UserDetailsService {
@@ -43,27 +40,26 @@ public class JwtService implements UserDetailsService {
         return new JwtResponse(user, newGeneratedToken);
     }
 
+    /**
+     * Charge l'utilisateur pour Spring Security, à la connexion comme à chaque
+     * requête porteuse d'un token.
+     *
+     * Renvoie un UtilisateurAuthentifie et non le User générique de Spring :
+     * c'est lui qui transporte le userId et les rôles métier jusqu'au module
+     * Réservation. L'identité du demandeur vient donc de la base, désignée par
+     * le sujet du token — jamais du corps de la requête (RS-04).
+     *
+     * Un nom inconnu lève UsernameNotFoundException, comme le contrat
+     * l'exige : l'ancien Optional.get() nu aurait produit un 500 pour un token
+     * dont le compte a été supprimé, là où il faut un 401.
+     */
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        Users user = userDao.findByUsername(username).get();
+        Users user = userDao.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException(
+                        "User not found with username: " + username));
 
-        if (user != null) {
-            return new org.springframework.security.core.userdetails.User(
-                    user.getUsername(),
-                    user.getPassword(),
-                    getAuthority(user)
-            );
-        } else {
-            throw new UsernameNotFoundException("User not found with username: " + username);
-        }
-    }
-
-    private Set getAuthority(Users user) {
-        Set<SimpleGrantedAuthority> authorities = new HashSet<>();
-        user.getRole().forEach(role -> {
-            authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getRoleName()));
-        });
-        return authorities;
+        return UtilisateurAuthentifie.depuis(user);
     }
 
     private void authenticate(String userName, String userPassword) throws Exception {
