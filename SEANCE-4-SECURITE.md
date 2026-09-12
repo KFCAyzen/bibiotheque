@@ -9,7 +9,8 @@ annuler ou supprimer celles des autres, et réserver en leur nom en glissant
 leur identifiant dans le corps de la requête.
 
 Cette séance ferme l'API selon la grille de l'énoncé, puis le prouve par des
-tests qui tournent sans base ni Docker, par `mvn test`.
+tests : unitaires sans aucune base, d'intégration contre le PostgreSQL du
+projet — les deux par `mvn test`.
 
 `pom.xml` et `application.properties` restent intacts.
 
@@ -27,15 +28,22 @@ tests qui tournent sans base ni Docker, par `mvn test`.
 [INFO] BUILD SUCCESS
 ```
 
-Commande, dans l'image de build du projet (JDK 8, imposé par Lombok et jjwt) :
+Les tests d'intégration visent le conteneur `db` du projet (profil `test`,
+`src/test/resources/application-test.properties`) : il doit tourner.
 
 ```bash
+docker compose up -d db
 cd bibliotheque-backend
-docker run --rm -v "$(pwd):/build" -v bibliotheque_m2:/root/.m2 -w /build \
-  maven:3.8-eclipse-temurin-8 mvn -B test
+./mvnw test                      # avec un JDK 8 local
 ```
 
-ou, avec un JDK 8 local, `./mvnw test`.
+ou, sans JDK 8, dans l'image de build du projet, attachée au réseau compose :
+
+```bash
+docker run --rm --network bibiotheque_default -e POSTGRES_HOST=db \
+  -v "$(pwd):/build" -v "$HOME/.m2:/root/.m2" -w /build \
+  maven:3.8-eclipse-temurin-8 mvn -B test
+```
 
 ---
 
@@ -109,12 +117,12 @@ et RG-01 sur un livre disponible puis indisponible (bonus).
 
 ### Intégration — GET /api/reservations sécurisé
 
-`ReservationControllerSecuriteTest` : `@WebMvcTest` avec la vraie chaîne de
-filtres Spring Security, le vrai `JwtRequestFilter`, de vrais JWT signés par
-`JwtUtil`, le vrai contrôleur, le vrai service et le vrai handler d'erreurs.
-Seuls les trois dépôts JPA sont simulés — c'est ce qui permet au test de
-tourner par `mvn test` sans PostgreSQL, le projet n'embarquant aucune base en
-mémoire.
+`ReservationControllerSecuriteTest` : `@SpringBootTest` + `MockMvc`, tout est
+réel — la chaîne de filtres Spring Security, les jetons obtenus par un vrai
+`POST /authenticate` (mot de passe BCrypt), le contrôleur, le service, le
+handler d'erreurs et la base PostgreSQL du projet. Chaque test crée ses trois
+comptes (`it-a1`, `it-a2`, `it-admin`) et deux réservations dans une
+transaction annulée à la fin : la base ressort intacte.
 
 - `lister_sans_token_repond_401`
 - `lister_avec_token_adherent_repond_200_avec_ses_reservations`
@@ -128,9 +136,15 @@ bibliothécaire, 403 sur RS-04 et 201 au nom du porteur du jeton sans
 `BibliothequeApplicationTests.contextLoads` rendait `mvn test` rouge dès qu'on
 le lançait hors de `docker compose` : sans les variables d'environnement qui
 pointent vers PostgreSQL, il lisait le `application.properties` figé (URL MySQL,
-pilote absent) et échouait. Il démarre maintenant le contexte complet avec
-l'auto-configuration JPA écartée et les dépôts en doublure — l'énoncé exige des
-tests qui passent sans qu'aucune base ne tourne.
+pilote absent). Le profil `test` joue désormais le rôle de `docker-compose.yml`
+pour les tests : URL PostgreSQL, dialecte PostgreSQL, sans toucher à
+`application.properties` ni à `pom.xml`.
+
+Au passage, un bug de jeu de données révélé par ces tests : `seed.sql` et la
+fixture insèrent les rôles avec `role_id` 1 et 2 explicites sans recaler la
+séquence `role_role_id_seq` — le prochain rôle créé par l'application aurait
+violé la clé primaire. Les deux scripts font maintenant le `setval`, comme
+pour `hibernate_sequence`.
 
 ---
 
