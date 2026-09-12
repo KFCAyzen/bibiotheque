@@ -47,6 +47,12 @@ INSERT INTO role (role_id, role_name) VALUES
     (2, 'User')
 ON CONFLICT DO NOTHING;
 
+-- Role déclare GenerationType.IDENTITY : sa colonne serial a sa propre
+-- séquence, que les identifiants explicites ci-dessus ne font pas avancer.
+-- Sans ce recalage, le prochain rôle créé par l'application viserait
+-- role_id = 1, déjà pris. Même piège que hibernate_sequence plus bas.
+SELECT setval('role_role_id_seq', (SELECT MAX(role_id) FROM role));
+
 -- Les comptes. Le mot de passe ne peut pas être en clair : WebSecurityConfiguration
 -- déclare un BCryptPasswordEncoder. Le haché ci-dessous correspond à "admin123"
 -- pour les deux comptes.
