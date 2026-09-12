@@ -11,10 +11,13 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 /**
  * Le contexte Spring démarre-t-il ?
  *
- * Le projet n'embarque aucune base en mémoire et pom.xml est intouchable :
- * sans les exclusions ci-dessous, ce test tentait d'ouvrir une connexion
- * MySQL sur localhost et échouait sur toute machine sans base — donc
- * « mvn test » était rouge avant même d'exécuter le moindre test utile.
+ * L'application tourne sur PostgreSQL, mais seulement parce que
+ * docker-compose.yml injecte SPRING_DATASOURCE_URL et le dialecte par
+ * variables d'environnement. « mvn test » lancé seul n'a pas ces variables :
+ * ce test lisait alors le application.properties figé de la séance 1 (URL
+ * MySQL, pilote absent du classpath) et échouait avant d'exécuter le moindre
+ * test utile. Le projet n'embarque aucune base en mémoire et pom.xml est
+ * intouchable ; l'énoncé exige des tests qui passent sans base qui tourne.
  *
  * On écarte donc l'auto-configuration JPA et on remplace les dépôts par des
  * doublures : tout le reste — sécurité, contrôleurs, services, planificateur

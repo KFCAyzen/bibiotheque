@@ -125,10 +125,12 @@ un jeton illisible (et non 500), 403 sur le DELETE d'un adhérent, 204 pour le
 bibliothécaire, 403 sur RS-04 et 201 au nom du porteur du jeton sans
 `adherentId` dans le corps.
 
-`BibliothequeApplicationTests.contextLoads` tentait d'ouvrir une connexion
-MySQL et rendait `mvn test` rouge sur toute machine sans base ; il démarre
-maintenant le contexte complet avec l'auto-configuration JPA écartée et les
-dépôts en doublure.
+`BibliothequeApplicationTests.contextLoads` rendait `mvn test` rouge dès qu'on
+le lançait hors de `docker compose` : sans les variables d'environnement qui
+pointent vers PostgreSQL, il lisait le `application.properties` figé (URL MySQL,
+pilote absent) et échouait. Il démarre maintenant le contexte complet avec
+l'auto-configuration JPA écartée et les dépôts en doublure — l'énoncé exige des
+tests qui passent sans qu'aucune base ne tourne.
 
 ---
 
